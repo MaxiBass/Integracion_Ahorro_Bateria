@@ -1,0 +1,145 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery savings",
+        "description": "Entities the calculation is based on. They can be changed later in Configure.",
+        "data": {
+          "bateria": "Battery power",
+          "bateria_positiva_descarga": "Battery power is positive when discharging",
+          "red": "Grid power",
+          "red_positiva_importa": "Grid power is positive when importing",
+          "precio_compra": "Current purchase price",
+          "precio_venta": "Surplus (export) price",
+          "iva": "VAT",
+          "impuesto_electrico": "Electricity tax",
+          "periodo": "Tariff period"
+        },
+        "data_description": {
+          "bateria": "In W or kW.",
+          "bateria_positiva_descarga": "Untick it if your inverter reports discharge as negative.",
+          "red": "In W or kW, measured at the grid connection point.",
+          "red_positiva_importa": "Untick it if your meter reports import as negative.",
+          "precio_compra": "€/kWh right now, taxes included.",
+          "precio_venta": "€/kWh credited for each exported kWh, before taxes.",
+          "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
+          "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
+          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period."
+        }
+      },
+      "acumulados": {
+        "title": "Totals so far",
+        "description": "If you come from another setup (e.g. YAML templates), enter its totals here so you don't start from zero. If you had the integration and removed it, the form is pre-filled with what it had saved.",
+        "data": {
+          "neto": "Accumulated net savings",
+          "descarga_punta": "Discharged in peak (punta)",
+          "descarga_llano": "Discharged in mid-peak (llano)",
+          "descarga_valle": "Discharged in off-peak (valle)",
+          "carga": "Charged"
+        }
+      }
+    },
+    "error": {
+      "misma_entidad": "Battery and grid cannot be the same entity."
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured: only one instance is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Battery savings",
+        "menu_options": {
+          "fuentes": "Change the source entities",
+          "acumulados": "Correct the accumulated totals"
+        }
+      },
+      "fuentes": {
+        "title": "Source entities",
+        "data": {
+          "bateria": "Battery power",
+          "bateria_positiva_descarga": "Battery power is positive when discharging",
+          "red": "Grid power",
+          "red_positiva_importa": "Grid power is positive when importing",
+          "precio_compra": "Current purchase price",
+          "precio_venta": "Surplus (export) price",
+          "iva": "VAT",
+          "impuesto_electrico": "Electricity tax",
+          "periodo": "Tariff period"
+        },
+        "data_description": {
+          "bateria": "In W or kW.",
+          "bateria_positiva_descarga": "Untick it if your inverter reports discharge as negative.",
+          "red": "In W or kW, measured at the grid connection point.",
+          "red_positiva_importa": "Untick it if your meter reports import as negative.",
+          "precio_compra": "€/kWh right now, taxes included.",
+          "precio_venta": "€/kWh credited for each exported kWh, before taxes.",
+          "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
+          "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
+          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period."
+        }
+      },
+      "acumulados": {
+        "title": "Correct the totals",
+        "description": "Replaces the accumulated totals with these values. Today's values don't change.",
+        "data": {
+          "neto": "Accumulated net savings",
+          "descarga_punta": "Discharged in peak (punta)",
+          "descarga_llano": "Discharged in mid-peak (llano)",
+          "descarga_valle": "Discharged in off-peak (valle)",
+          "carga": "Charged"
+        }
+      }
+    },
+    "error": {
+      "misma_entidad": "Battery and grid cannot be the same entity."
+    },
+    "abort": {
+      "no_cargada": "The integration is not loaded; try again once it is."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "neto_hoy": {
+        "name": "Net today"
+      },
+      "neto_total": {
+        "name": "Net total"
+      },
+      "bruto_hoy": {
+        "name": "Gross today"
+      },
+      "coste_hoy": {
+        "name": "Charging cost today"
+      },
+      "descarga_punta_hoy": {
+        "name": "Peak discharge today"
+      },
+      "descarga_llano_hoy": {
+        "name": "Mid-peak discharge today"
+      },
+      "descarga_valle_hoy": {
+        "name": "Off-peak discharge today"
+      },
+      "descarga_punta_total": {
+        "name": "Peak discharge total"
+      },
+      "descarga_llano_total": {
+        "name": "Mid-peak discharge total"
+      },
+      "descarga_valle_total": {
+        "name": "Off-peak discharge total"
+      },
+      "carga_total": {
+        "name": "Charge total"
+      },
+      "carga_hoy": {
+        "name": "Charge today"
+      },
+      "carga_red_hoy": {
+        "name": "Charge from grid today"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "entity": {
+    "sensor": {
+      "neto_hoy": {"default": "mdi:piggy-bank-outline"},
+      "neto_total": {"default": "mdi:cash-multiple"},
+      "bruto_hoy": {"default": "mdi:cash-plus"},
+      "coste_hoy": {"default": "mdi:cash-minus"},
+      "descarga_punta_hoy": {"default": "mdi:battery-minus-variant"},
+      "descarga_llano_hoy": {"default": "mdi:battery-minus-variant"},
+      "descarga_valle_hoy": {"default": "mdi:battery-minus-variant"},
+      "descarga_punta_total": {"default": "mdi:chart-bar"},
+      "descarga_llano_total": {"default": "mdi:chart-bar"},
+      "descarga_valle_total": {"default": "mdi:chart-bar"},
+      "carga_total": {"default": "mdi:battery-plus-variant"},
+      "carga_hoy": {"default": "mdi:battery-plus-variant"},
+      "carga_red_hoy": {"default": "mdi:transmission-tower-import"}
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ahorro batería",
+        "description": "Entidades de las que sale el cálculo. Se pueden cambiar después en Configurar.",
+        "data": {
+          "bateria": "Potencia de la batería",
+          "bateria_positiva_descarga": "La potencia de la batería es positiva al descargar",
+          "red": "Potencia de la red",
+          "red_positiva_importa": "La potencia de la red es positiva al importar",
+          "precio_compra": "Precio de compra actual",
+          "precio_venta": "Precio de los excedentes",
+          "iva": "IVA",
+          "impuesto_electrico": "Impuesto eléctrico",
+          "periodo": "Periodo tarifario"
+        },
+        "data_description": {
+          "bateria": "En W o kW.",
+          "bateria_positiva_descarga": "Desmárcalo si tu inversor da la descarga en negativo.",
+          "red": "En W o kW, medida en el punto de conexión con la compañía.",
+          "red_positiva_importa": "Desmárcalo si tu medidor da la importación en negativo.",
+          "precio_compra": "€/kWh del momento, con impuestos incluidos.",
+          "precio_venta": "€/kWh que te compensan por cada kWh exportado, sin impuestos.",
+          "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
+          "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
+          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo."
+        }
+      },
+      "acumulados": {
+        "title": "Lo acumulado hasta hoy",
+        "description": "Si vienes de otro sistema (por ejemplo, plantillas YAML), pon aquí sus totales para no empezar de cero. Si ya tenías la integración y la borraste, el formulario sale con lo que tenía guardado.",
+        "data": {
+          "neto": "Ahorro neto acumulado",
+          "descarga_punta": "Descargado en punta",
+          "descarga_llano": "Descargado en llano",
+          "descarga_valle": "Descargado en valle",
+          "carga": "Cargado"
+        }
+      }
+    },
+    "error": {
+      "misma_entidad": "La batería y la red no pueden ser la misma entidad."
+    },
+    "abort": {
+      "single_instance_allowed": "Ya está configurada: solo puede haber una."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ahorro batería",
+        "menu_options": {
+          "fuentes": "Cambiar las entidades de origen",
+          "acumulados": "Corregir los totales acumulados"
+        }
+      },
+      "fuentes": {
+        "title": "Entidades de origen",
+        "data": {
+          "bateria": "Potencia de la batería",
+          "bateria_positiva_descarga": "La potencia de la batería es positiva al descargar",
+          "red": "Potencia de la red",
+          "red_positiva_importa": "La potencia de la red es positiva al importar",
+          "precio_compra": "Precio de compra actual",
+          "precio_venta": "Precio de los excedentes",
+          "iva": "IVA",
+          "impuesto_electrico": "Impuesto eléctrico",
+          "periodo": "Periodo tarifario"
+        },
+        "data_description": {
+          "bateria": "En W o kW.",
+          "bateria_positiva_descarga": "Desmárcalo si tu inversor da la descarga en negativo.",
+          "red": "En W o kW, medida en el punto de conexión con la compañía.",
+          "red_positiva_importa": "Desmárcalo si tu medidor da la importación en negativo.",
+          "precio_compra": "€/kWh del momento, con impuestos incluidos.",
+          "precio_venta": "€/kWh que te compensan por cada kWh exportado, sin impuestos.",
+          "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
+          "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
+          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo."
+        }
+      },
+      "acumulados": {
+        "title": "Corregir los totales",
+        "description": "Sustituye los totales acumulados por estos valores. Lo de hoy no cambia.",
+        "data": {
+          "neto": "Ahorro neto acumulado",
+          "descarga_punta": "Descargado en punta",
+          "descarga_llano": "Descargado en llano",
+          "descarga_valle": "Descargado en valle",
+          "carga": "Cargado"
+        }
+      }
+    },
+    "error": {
+      "misma_entidad": "La batería y la red no pueden ser la misma entidad."
+    },
+    "abort": {
+      "no_cargada": "La integración no está cargada; vuelve a intentarlo cuando lo esté."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "neto_hoy": {
+        "name": "Neto hoy"
+      },
+      "neto_total": {
+        "name": "Neto total"
+      },
+      "bruto_hoy": {
+        "name": "Bruto hoy"
+      },
+      "coste_hoy": {
+        "name": "Coste de la carga hoy"
+      },
+      "descarga_punta_hoy": {
+        "name": "Descarga punta hoy"
+      },
+      "descarga_llano_hoy": {
+        "name": "Descarga llano hoy"
+      },
+      "descarga_valle_hoy": {
+        "name": "Descarga valle hoy"
+      },
+      "descarga_punta_total": {
+        "name": "Descarga punta total"
+      },
+      "descarga_llano_total": {
+        "name": "Descarga llano total"
+      },
+      "descarga_valle_total": {
+        "name": "Descarga valle total"
+      },
+      "carga_total": {
+        "name": "Carga total"
+      },
+      "carga_hoy": {
+        "name": "Carga hoy"
+      },
+      "carga_red_hoy": {
+        "name": "Carga desde la red hoy"
+      }
+    }
+  }
+}

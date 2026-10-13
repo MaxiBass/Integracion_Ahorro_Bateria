@@ -1,0 +1,15 @@
+{
+  "domain": "ahorro_bateria",
+  "name": "Ahorro Batería",
+  "version": "0.1.0",
+  "documentation": "https://github.com/MaxiBass/Integracion_Ahorro_Bateria",
+  "issue_tracker": "https://github.com/MaxiBass/Integracion_Ahorro_Bateria/issues",
+  "requirements": [],
+  "codeowners": [
+    "@MaxiBass"
+  ],
+  "iot_class": "calculated",
+  "config_flow": true,
+  "integration_type": "service",
+  "single_config_entry": true
+}
