@@ -30,15 +30,24 @@ from .const import (
     CONF_BATERIA,
     CONF_BATERIA_POSITIVA_DESCARGA,
     CONF_CONSUMO,
+    CONF_DIA_FACTURACION,
     CONF_IMPUESTO_ELECTRICO,
     CONF_INICIALES,
     CONF_IVA,
+    CONF_MONEDERO,
+    CONF_MONEDERO_ANTES_IMPUESTOS,
     CONF_PERIODO,
+    CONF_POTENCIA_PUNTA,
+    CONF_POTENCIA_VALLE,
+    CONF_PRECIO_POTENCIA_PUNTA,
+    CONF_PRECIO_POTENCIA_VALLE,
     CONF_PRECIO_COMPRA,
     CONF_PRECIO_VENTA,
     CONF_RED,
     CONF_RED_POSITIVA_IMPORTA,
+    CONF_TOPE_INCLUYE_POTENCIA,
     DOMAIN,
+    FACTURACION_POR_DEFECTO,
     SUGERIDAS,
 )
 from .contador import ContadorAhorro, async_leer_almacen
@@ -60,6 +69,21 @@ ESQUEMA_FUENTES = vol.Schema(
         vol.Optional(CONF_PERIODO): _PERIODO,
         # Opcional: sin él no hay ahorro de las placas.
         vol.Optional(CONF_CONSUMO): _POTENCIA,
+        # Facturación: tope de la compensación (DECISIONES §13).
+        vol.Required(CONF_MONEDERO, default=FACTURACION_POR_DEFECTO[CONF_MONEDERO]): BooleanSelector(),
+        vol.Required(
+            CONF_MONEDERO_ANTES_IMPUESTOS, default=FACTURACION_POR_DEFECTO[CONF_MONEDERO_ANTES_IMPUESTOS]
+        ): BooleanSelector(),
+        vol.Required(
+            CONF_TOPE_INCLUYE_POTENCIA, default=FACTURACION_POR_DEFECTO[CONF_TOPE_INCLUYE_POTENCIA]
+        ): BooleanSelector(),
+        vol.Required(CONF_DIA_FACTURACION, default=FACTURACION_POR_DEFECTO[CONF_DIA_FACTURACION]): NumberSelector(
+            NumberSelectorConfig(min=1, max=31, step=1, mode=NumberSelectorMode.BOX)
+        ),
+        vol.Optional(CONF_POTENCIA_PUNTA): _VALOR,
+        vol.Optional(CONF_PRECIO_POTENCIA_PUNTA): _VALOR,
+        vol.Optional(CONF_POTENCIA_VALLE): _VALOR,
+        vol.Optional(CONF_PRECIO_POTENCIA_VALLE): _VALOR,
     }
 )
 
@@ -93,6 +117,11 @@ def _validar_fuentes(datos: dict[str, Any]) -> dict[str, str]:
         return {CONF_RED: "misma_entidad"}
     if datos.get(CONF_CONSUMO) in (datos[CONF_BATERIA], datos[CONF_RED]):
         return {CONF_CONSUMO: "misma_entidad"}
+    if datos.get(CONF_TOPE_INCLUYE_POTENCIA) and not (
+        (datos.get(CONF_POTENCIA_PUNTA) and datos.get(CONF_PRECIO_POTENCIA_PUNTA))
+        or (datos.get(CONF_POTENCIA_VALLE) and datos.get(CONF_PRECIO_POTENCIA_VALLE))
+    ):
+        return {CONF_TOPE_INCLUYE_POTENCIA: "falta_potencia"}
     return {}
 
 
@@ -114,7 +143,7 @@ class AhorroBateriaConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             errores = _validar_fuentes(user_input)
             if not errores:
-                self._fuentes = user_input
+                self._fuentes = {**user_input, CONF_DIA_FACTURACION: int(user_input[CONF_DIA_FACTURACION])}
                 return await self.async_step_acumulados()
 
         return self.async_show_form(
@@ -161,7 +190,9 @@ class OpcionesAhorroBateria(OptionsFlowWithReload):
             errores = _validar_fuentes(user_input)
             if not errores:
                 # Se guarda tal cual: un campo opcional vaciado desaparece.
-                return self.async_create_entry(data=user_input)
+                return self.async_create_entry(
+                    data={**user_input, CONF_DIA_FACTURACION: int(user_input[CONF_DIA_FACTURACION])}
+                )
 
         return self.async_show_form(
             step_id="fuentes",

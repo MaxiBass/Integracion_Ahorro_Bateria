@@ -123,6 +123,42 @@ SENSORES_PLACAS: tuple[DescripcionAhorro, ...] = (
 )
 
 
+# Periodo de facturación y tope de la compensación (DECISIONES §13). Valores
+# en € sin impuestos, como en la factura.
+@dataclass(frozen=True, kw_only=True)
+class DescripcionFacturacion(SensorEntityDescription):
+    entity_id: str
+    valor: Callable[[ContadorAhorro], float]
+    atributos: Callable[[ContadorAhorro], dict[str, Any]] | None = None
+
+
+def _periodo(clave: str):
+    return lambda c: c.periodo_actual()[clave]
+
+
+SENSORES_FACTURACION: tuple[DescripcionFacturacion, ...] = tuple(
+    DescripcionFacturacion(
+        key=clave,
+        translation_key=clave,
+        entity_id=entity_id,
+        device_class=SensorDeviceClass.MONETARY,
+        native_unit_of_measurement=EURO,
+        suggested_display_precision=2,
+        valor=valor,
+        atributos=atributos,
+    )
+    for clave, entity_id, valor, atributos in (
+        ("compensacion_periodo", "sensor.ahorro_compensacion_periodo", _periodo("comp_real"),
+         lambda c: c.periodo_actual()),
+        ("tope_periodo", "sensor.ahorro_tope_periodo", _periodo("tope_real"), None),
+        ("exceso_periodo", "sensor.ahorro_exceso_periodo", _periodo("exceso_real"),
+         lambda c: {"destino": c.periodo_actual()["destino_exceso"]}),
+        ("ajuste_tope_total", "sensor.ahorro_ajuste_tope_total", lambda c: c.acumulados.total["ajuste_tope"],
+         lambda c: {"ultimo_periodo": c.acumulados.ultimo_periodo}),
+    )
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry[ContadorAhorro],
@@ -131,7 +167,10 @@ async def async_setup_entry(
     descripciones = SENSORES
     if entry.options.get(CONF_CONSUMO):
         descripciones += SENSORES_PLACAS
-    async_add_entities(SensorAhorro(entry, descripcion) for descripcion in descripciones)
+    async_add_entities(
+        [SensorAhorro(entry, descripcion) for descripcion in descripciones]
+        + [SensorFacturacion(entry, descripcion) for descripcion in SENSORES_FACTURACION]
+    )
 
 
 class SensorAhorro(SensorEntity):
@@ -180,3 +219,30 @@ class SensorAhorro(SensorEntity):
         if self.entity_description.atributos is None:
             return None
         return self.entity_description.atributos(self._contador.acumulados)
+
+
+class SensorFacturacion(SensorAhorro):
+    """Un dato del periodo de facturación en curso."""
+
+    entity_description: DescripcionFacturacion
+
+    def __init__(self, entry: ConfigEntry[ContadorAhorro], descripcion: DescripcionFacturacion) -> None:
+        self.entity_description = descripcion
+        self._contador = entry.runtime_data
+        self._attr_unique_id = f"{DOMAIN}_{descripcion.key}"
+        self.entity_id = descripcion.entity_id
+        self._attr_device_info = device_info(entry, "facturacion")
+
+    @property
+    def native_value(self) -> float:
+        return round(self.entity_description.valor(self._contador), 4)
+
+    @property
+    def last_reset(self) -> datetime | None:
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.atributos is None:
+            return None
+        return self.entity_description.atributos(self._contador)

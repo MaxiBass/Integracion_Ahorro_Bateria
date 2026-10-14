@@ -14,7 +14,15 @@
           "iva": "VAT",
           "impuesto_electrico": "Electricity tax",
           "periodo": "Tariff period",
-          "consumo": "House consumption"
+          "consumo": "House consumption",
+          "monedero": "Surplus above the cap is stored in a wallet",
+          "monedero_antes_impuestos": "Wallet balance is applied before taxes",
+          "tope_incluye_potencia": "Compensation also offsets the power term",
+          "dia_facturacion": "Day the billing period starts",
+          "potencia_punta": "Contracted power (peak)",
+          "precio_potencia_punta": "Power price (peak)",
+          "potencia_valle": "Contracted power (off-peak)",
+          "precio_potencia_valle": "Power price (off-peak)"
         },
         "data_description": {
           "bateria": "In W or kW.",
@@ -26,7 +34,15 @@
           "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
           "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
           "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period.",
-          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated."
+          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated.",
+          "monedero": "Surplus compensation cannot exceed each bill's energy term. Tick it if your retailer keeps the excess for later bills; otherwise it is lost.",
+          "monedero_antes_impuestos": "Tick it if the balance offsets the energy or power term (it also saves taxes); untick it if it is taken off the bill total.",
+          "tope_incluye_potencia": "Tick it if compensation can also offset the power term (the cap becomes energy + power). Needs the power and its price.",
+          "dia_facturacion": "1 to 31; in shorter months, the last day.",
+          "potencia_punta": "In W or kW.",
+          "precio_potencia_punta": "€/kW·day, before taxes.",
+          "potencia_valle": "In W or kW.",
+          "precio_potencia_valle": "€/kW·day, before taxes."
         }
       },
       "acumulados": {
@@ -43,7 +59,8 @@
       }
     },
     "error": {
-      "misma_entidad": "Battery, grid and consumption must be different entities."
+      "misma_entidad": "Battery, grid and consumption must be different entities.",
+      "falta_potencia": "Including power in the cap needs the contracted power and its price."
     },
     "abort": {
       "single_instance_allowed": "Already configured: only one instance is allowed."
@@ -70,7 +87,15 @@
           "iva": "VAT",
           "impuesto_electrico": "Electricity tax",
           "periodo": "Tariff period",
-          "consumo": "House consumption"
+          "consumo": "House consumption",
+          "monedero": "Surplus above the cap is stored in a wallet",
+          "monedero_antes_impuestos": "Wallet balance is applied before taxes",
+          "tope_incluye_potencia": "Compensation also offsets the power term",
+          "dia_facturacion": "Day the billing period starts",
+          "potencia_punta": "Contracted power (peak)",
+          "precio_potencia_punta": "Power price (peak)",
+          "potencia_valle": "Contracted power (off-peak)",
+          "precio_potencia_valle": "Power price (off-peak)"
         },
         "data_description": {
           "bateria": "In W or kW.",
@@ -82,7 +107,15 @@
           "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
           "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
           "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period.",
-          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated."
+          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated.",
+          "monedero": "Surplus compensation cannot exceed each bill's energy term. Tick it if your retailer keeps the excess for later bills; otherwise it is lost.",
+          "monedero_antes_impuestos": "Tick it if the balance offsets the energy or power term (it also saves taxes); untick it if it is taken off the bill total.",
+          "tope_incluye_potencia": "Tick it if compensation can also offset the power term (the cap becomes energy + power). Needs the power and its price.",
+          "dia_facturacion": "1 to 31; in shorter months, the last day.",
+          "potencia_punta": "In W or kW.",
+          "precio_potencia_punta": "€/kW·day, before taxes.",
+          "potencia_valle": "In W or kW.",
+          "precio_potencia_valle": "€/kW·day, before taxes."
         }
       },
       "acumulados": {
@@ -99,7 +132,8 @@
       }
     },
     "error": {
-      "misma_entidad": "Battery, grid and consumption must be different entities."
+      "misma_entidad": "Battery, grid and consumption must be different entities.",
+      "falta_potencia": "Including power in the cap needs the contracted power and its price."
     },
     "abort": {
       "no_cargada": "The integration is not loaded; try again once it is."
@@ -157,6 +191,34 @@
       },
       "instalacion_total": {
         "name": "Accumulated"
+      },
+      "compensacion_periodo": {
+        "name": "Period compensation"
+      },
+      "tope_periodo": {
+        "name": "Period cap"
+      },
+      "exceso_periodo": {
+        "name": "Excess over the cap"
+      },
+      "ajuste_tope_total": {
+        "name": "Accumulated cap adjustment"
+      }
+    },
+    "switch": {
+      "monedero": {
+        "name": "Surplus wallet"
+      },
+      "monedero_antes_impuestos": {
+        "name": "Wallet before taxes"
+      },
+      "tope_incluye_potencia": {
+        "name": "Cap includes power"
+      }
+    },
+    "number": {
+      "dia_facturacion": {
+        "name": "Billing start day"
       }
     }
   }

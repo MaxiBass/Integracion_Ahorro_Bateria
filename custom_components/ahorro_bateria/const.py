@@ -1,4 +1,4 @@
-"""Constantes de Ahorro Batería."""
+"""Constantes de Ahorro Solar (dominio ahorro_bateria)."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -17,6 +17,26 @@ CONF_IVA = "iva"
 CONF_IMPUESTO_ELECTRICO = "impuesto_electrico"
 CONF_PERIODO = "periodo"
 CONF_CONSUMO = "consumo"
+# Término de potencia (para el tope de la compensación, si también la descuenta).
+CONF_POTENCIA_PUNTA = "potencia_punta"
+CONF_PRECIO_POTENCIA_PUNTA = "precio_potencia_punta"
+CONF_POTENCIA_VALLE = "potencia_valle"
+CONF_PRECIO_POTENCIA_VALLE = "precio_potencia_valle"
+
+# Facturación (DECISIONES §13). También se cambian desde las entidades de
+# configuración (switch/number), sin recargar.
+CONF_MONEDERO = "monedero"
+CONF_MONEDERO_ANTES_IMPUESTOS = "monedero_antes_impuestos"
+CONF_TOPE_INCLUYE_POTENCIA = "tope_incluye_potencia"
+CONF_DIA_FACTURACION = "dia_facturacion"
+FACTURACION_POR_DEFECTO = {
+    # Lo que dice la norma: lo que pasa del tope se pierde y el tope es
+    # solo la energía. El monedero es cosa de cada comercializadora.
+    CONF_MONEDERO: False,
+    CONF_MONEDERO_ANTES_IMPUESTOS: True,
+    CONF_TOPE_INCLUYE_POTENCIA: False,
+    CONF_DIA_FACTURACION: 1,
+}
 
 FUENTES = (
     CONF_BATERIA,
@@ -27,6 +47,10 @@ FUENTES = (
     CONF_IMPUESTO_ELECTRICO,
     CONF_PERIODO,
     CONF_CONSUMO,
+    CONF_POTENCIA_PUNTA,
+    CONF_PRECIO_POTENCIA_PUNTA,
+    CONF_POTENCIA_VALLE,
+    CONF_PRECIO_POTENCIA_VALLE,
 )
 
 # Lo acumulado antes de instalar la integración: va en los datos de la
@@ -44,6 +68,10 @@ SUGERIDAS = {
     CONF_IMPUESTO_ELECTRICO: "input_number.precio_impuestos_electricidad",
     CONF_PERIODO: "sensor.periodo_tarifario",
     CONF_CONSUMO: "sensor.deye_load_power",
+    CONF_POTENCIA_PUNTA: "input_number.potencia_contratada_punta",
+    CONF_PRECIO_POTENCIA_PUNTA: "input_number.precio_potencia_contratada_punta",
+    CONF_POTENCIA_VALLE: "input_number.potencia_contratada_valle",
+    CONF_PRECIO_POTENCIA_VALLE: "input_number.precio_potencia_contratada_valle",
 }
 
 PERIODOS = ("punta", "llano", "valle")

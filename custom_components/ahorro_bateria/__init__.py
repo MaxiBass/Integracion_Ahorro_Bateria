@@ -14,7 +14,7 @@ from homeassistant.helpers import device_registry as dr
 from .contador import ContadorAhorro
 from .entity import device_info
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER]
 
 type EntradaAhorro = ConfigEntry[ContadorAhorro]
 

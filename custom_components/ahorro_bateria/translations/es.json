@@ -14,7 +14,15 @@
           "iva": "IVA",
           "impuesto_electrico": "Impuesto eléctrico",
           "periodo": "Periodo tarifario",
-          "consumo": "Consumo de la casa"
+          "consumo": "Consumo de la casa",
+          "monedero": "Lo que pasa del tope se guarda en un monedero",
+          "monedero_antes_impuestos": "El saldo del monedero se descuenta antes de impuestos",
+          "tope_incluye_potencia": "La compensación también descuenta el término de potencia",
+          "dia_facturacion": "Día en que empieza el periodo de facturación",
+          "potencia_punta": "Potencia contratada punta",
+          "precio_potencia_punta": "Precio de la potencia punta",
+          "potencia_valle": "Potencia contratada valle",
+          "precio_potencia_valle": "Precio de la potencia valle"
         },
         "data_description": {
           "bateria": "En W o kW.",
@@ -26,7 +34,15 @@
           "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
           "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
           "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo.",
-          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas."
+          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas.",
+          "monedero": "La compensación de excedentes no puede pasar del término de energía de cada factura. Márcalo si tu comercializadora guarda lo que sobra para facturas siguientes; si no, se pierde.",
+          "monedero_antes_impuestos": "Márcalo si el saldo se descuenta del término de energía o potencia (también ahorra impuestos); desmárcalo si se descuenta del total de la factura.",
+          "tope_incluye_potencia": "Márcalo si la compensación puede descontar también la potencia (el tope pasa a ser energía + potencia). Necesita la potencia y su precio.",
+          "dia_facturacion": "Del 1 al 31; en meses más cortos, el último día.",
+          "potencia_punta": "En W o kW.",
+          "precio_potencia_punta": "€/kW·día, sin impuestos.",
+          "potencia_valle": "En W o kW.",
+          "precio_potencia_valle": "€/kW·día, sin impuestos."
         }
       },
       "acumulados": {
@@ -43,7 +59,8 @@
       }
     },
     "error": {
-      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas."
+      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas.",
+      "falta_potencia": "Para que el tope incluya la potencia hacen falta la potencia contratada y su precio."
     },
     "abort": {
       "single_instance_allowed": "Ya está configurada: solo puede haber una."
@@ -70,7 +87,15 @@
           "iva": "IVA",
           "impuesto_electrico": "Impuesto eléctrico",
           "periodo": "Periodo tarifario",
-          "consumo": "Consumo de la casa"
+          "consumo": "Consumo de la casa",
+          "monedero": "Lo que pasa del tope se guarda en un monedero",
+          "monedero_antes_impuestos": "El saldo del monedero se descuenta antes de impuestos",
+          "tope_incluye_potencia": "La compensación también descuenta el término de potencia",
+          "dia_facturacion": "Día en que empieza el periodo de facturación",
+          "potencia_punta": "Potencia contratada punta",
+          "precio_potencia_punta": "Precio de la potencia punta",
+          "potencia_valle": "Potencia contratada valle",
+          "precio_potencia_valle": "Precio de la potencia valle"
         },
         "data_description": {
           "bateria": "En W o kW.",
@@ -82,7 +107,15 @@
           "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
           "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
           "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo.",
-          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas."
+          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas.",
+          "monedero": "La compensación de excedentes no puede pasar del término de energía de cada factura. Márcalo si tu comercializadora guarda lo que sobra para facturas siguientes; si no, se pierde.",
+          "monedero_antes_impuestos": "Márcalo si el saldo se descuenta del término de energía o potencia (también ahorra impuestos); desmárcalo si se descuenta del total de la factura.",
+          "tope_incluye_potencia": "Márcalo si la compensación puede descontar también la potencia (el tope pasa a ser energía + potencia). Necesita la potencia y su precio.",
+          "dia_facturacion": "Del 1 al 31; en meses más cortos, el último día.",
+          "potencia_punta": "En W o kW.",
+          "precio_potencia_punta": "€/kW·día, sin impuestos.",
+          "potencia_valle": "En W o kW.",
+          "precio_potencia_valle": "€/kW·día, sin impuestos."
         }
       },
       "acumulados": {
@@ -99,7 +132,8 @@
       }
     },
     "error": {
-      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas."
+      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas.",
+      "falta_potencia": "Para que el tope incluya la potencia hacen falta la potencia contratada y su precio."
     },
     "abort": {
       "no_cargada": "La integración no está cargada; vuelve a intentarlo cuando lo esté."
@@ -157,6 +191,34 @@
       },
       "instalacion_total": {
         "name": "Acumulado"
+      },
+      "compensacion_periodo": {
+        "name": "Compensación del periodo"
+      },
+      "tope_periodo": {
+        "name": "Tope del periodo"
+      },
+      "exceso_periodo": {
+        "name": "Exceso sobre el tope"
+      },
+      "ajuste_tope_total": {
+        "name": "Ajuste acumulado por el tope"
+      }
+    },
+    "switch": {
+      "monedero": {
+        "name": "Monedero de excedentes"
+      },
+      "monedero_antes_impuestos": {
+        "name": "Monedero antes de impuestos"
+      },
+      "tope_incluye_potencia": {
+        "name": "Tope incluye la potencia"
+      }
+    },
+    "number": {
+      "dia_facturacion": {
+        "name": "Día de inicio de facturación"
       }
     }
   }

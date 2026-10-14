@@ -13,6 +13,7 @@ DISPOSITIVOS = {
     "bateria": "Ahorro batería",
     "placas": "Ahorro placas",
     "instalacion": "Ahorro instalación",
+    "facturacion": "Ahorro facturación",
 }
 
 

@@ -51,6 +51,18 @@
       },
       "instalacion_total": {
         "default": "mdi:home-lightning-bolt"
+      },
+      "compensacion_periodo": {
+        "default": "mdi:cash-refund"
+      },
+      "tope_periodo": {
+        "default": "mdi:format-vertical-align-top"
+      },
+      "exceso_periodo": {
+        "default": "mdi:wallet-plus-outline"
+      },
+      "ajuste_tope_total": {
+        "default": "mdi:scale-balance"
       }
     }
   }

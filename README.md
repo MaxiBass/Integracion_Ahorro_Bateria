@@ -64,6 +64,17 @@ instalación» (€, hoy y acumulado):
 | `sensor.ahorro_placas_hoy` / `_total` | Lo que ahorran las placas |
 | `sensor.ahorro_instalacion_hoy` / `_total` | Placas + batería; el total lleva el desglose en atributos |
 
+Y un cuarto, «Ahorro facturación», con el periodo de facturación en curso
+(€ sin impuestos): `sensor.ahorro_compensacion_periodo`,
+`sensor.ahorro_tope_periodo`, `sensor.ahorro_exceso_periodo` y
+`sensor.ahorro_ajuste_tope_total`; y sus ajustes, que también se cambian
+desde un panel: `switch.ahorro_monedero`,
+`switch.ahorro_monedero_antes_impuestos`,
+`switch.ahorro_tope_incluye_potencia` y `number.ahorro_dia_facturacion`.
+La compensación de excedentes tiene tope (el término de energía, o energía +
+potencia); al cerrar cada periodo se descuenta lo que pasó del tope, según
+vaya a un monedero o se pierda (DECISIONES §13).
+
 Los `entity_id` son fijos; los de la batería coinciden con los del paquete
 YAML al que sustituye, para que los paneles y el historial sigan sin cambios. Los € son
 `monetary` con estadísticas a largo plazo; los kWh, `total_increasing`. Lo

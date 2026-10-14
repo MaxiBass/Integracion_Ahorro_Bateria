@@ -234,10 +234,63 @@ desde finales de marzo hasta el 13/10 (las facturas llevaban 21 % y
 5,11 %). Todo lo acumulado en ese periodo (batería y placas) se revalorizó
 por (1,0511 × 1,21) / (1,005 × 1,10) ≈ 1,1505 con «Corregir los totales».
 
-**Tope de la compensación** (no modelado): el excedente compensado nunca
-puede pasar del término de energía del periodo de facturación; lo que sobra
-se pierde. Con meses naturales como aproximación, en los meses de más sol
+**Tope de la compensación** (modelado desde la v0.3.0, §13): el excedente
+compensado nunca puede pasar del término de energía del periodo de
+facturación; lo que sobra se pierde, salvo que la comercializadora lo guarde
+en un monedero (la de Maxi lo hace). Con meses naturales como aproximación, en los meses de más sol
 (abril sobre todo) se perdió parte de la compensación, así que en esos meses
 el ahorro de las placas (y el de la instalación) queda algo sobrevalorado y
 el coste de cargar la batería con sol, algo inflado: ese excedente no valía
 nada. Modelarlo exige conocer las fechas de cada periodo de facturación.
+
+## 13. Tope de la compensación y monedero (v0.3.0, 14/10/2026)
+
+Maxi pidió poder indicar, al configurar los precios, si los excedentes que
+pasan del tope van a un monedero y si la compensación descuenta también el
+término fijo (la potencia). Con eso la integración aplica el tope.
+
+**Qué se acumula.** Además de lo de siempre, en cada intervalo se suma al
+periodo de facturación en curso, en € sin impuestos (como en la factura):
+el término de energía y la compensación en dos escenarios (real y sin
+batería; sin nada no hay excedente) y el término de potencia (potencia
+contratada × precio, punta + valle).
+
+**Durante el periodo** se sigue valorando todo el excedente (con
+impuestos, §3): no se sabe si se pasará del tope hasta que acaba.
+
+**Al cerrar el periodo** (el día de inicio del siguiente, a medianoche):
+
+    tope   = energía (+ potencia, si la compensación también la descuenta)
+    exceso = max(0, compensación − tope)          en cada escenario
+
+y lo que se contó de más por ese exceso depende de la comercializadora:
+
+| Opciones | Valor perdido por cada € de exceso |
+|---|---|
+| sin monedero | todo: 1 € × impuestos |
+| monedero, saldo descontado antes de impuestos | nada |
+| monedero, saldo descontado del total de la factura | solo los impuestos |
+
+Se descuenta así, para que placas + batería siga siendo la instalación:
+
+- **instalación** − perdido real;
+- **placas** − perdido sin batería (eran sus excedentes);
+- **batería** + (perdido sin batería − perdido real): si sin ella se
+  habría perdido más excedente, guardarlo valía más de lo que se le cobró.
+
+El ajuste va a los totales (no a lo de «hoy») y queda en
+`sensor.ahorro_ajuste_tope_total`, con el último periodo cerrado en sus
+atributos.
+
+**Opciones.** Monedero, monedero antes de impuestos, tope con potencia y
+día de inicio del periodo están en Configurar y, además, como entidades de
+configuración (3 interruptores y un número) para cambiarlas desde un panel
+sin recargar. Por defecto, lo que dice la norma: sin monedero, tope solo de
+energía, periodo desde el día 1. El término de potencia necesita las
+entidades de potencia contratada y su precio.
+
+**Limitaciones.** El periodo se cuenta desde que la integración lo conoce:
+el que estaba en curso al instalar la v0.3.0 empieza ese día. Los periodos
+reales no siempre empiezan el mismo día de cada mes; si cambia, se ajusta el
+día (lo acumulado del periodo se conserva). Si el saldo del monedero nunca
+se llega a gastar, valdría menos de lo contado.

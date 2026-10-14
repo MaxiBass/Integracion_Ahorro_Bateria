@@ -69,6 +69,16 @@ ENTITY_IDS = {
     "placas_total": "sensor.ahorro_placas_total",
     "instalacion_hoy": "sensor.ahorro_instalacion_hoy",
     "instalacion_total": "sensor.ahorro_instalacion_total",
+    "compensacion_periodo": "sensor.ahorro_compensacion_periodo",
+    "tope_periodo": "sensor.ahorro_tope_periodo",
+    "exceso_periodo": "sensor.ahorro_exceso_periodo",
+    "ajuste_tope_total": "sensor.ahorro_ajuste_tope_total",
+}
+CONFIGURACION_IDS = {
+    "monedero": "switch.ahorro_monedero",
+    "monedero_antes_impuestos": "switch.ahorro_monedero_antes_impuestos",
+    "tope_incluye_potencia": "switch.ahorro_tope_incluye_potencia",
+    "dia_facturacion": "number.ahorro_dia_facturacion",
 }
 DE_BATERIA = [k for k in ENTITY_IDS if not k.startswith(("placas", "instalacion"))]
 
@@ -151,8 +161,10 @@ def test_calculo() -> None:
     comprobar(casi(a["coste"], 0.5 * VALLE + 1.5 * EXCEDENTE_FINAL, 1e-9) and casi(a["carga_red"], 0.5, 1e-9),
               f"carga mixta: 0,5 kWh de red y 1,5 de sol ({a['coste']:.5f} €)")
 
+    from custom_components.ahorro_bateria.calculo import CLAVES
+
     a = una_hora(0, 400, PUNTA)
-    comprobar(all(v == 0 for v in a.values()), "batería parada: no suma nada")
+    comprobar(all(a[k] == 0 for k in CLAVES), "batería parada y sin consumo: no suma ahorro")
 
     a = aportacion(Entradas(None, 200, PUNTA, EXCEDENTE, 10.0, 0.5, "punta"), 1.0)
     comprobar(all(v == 0 for v in a.values()), "sin dato de la batería: no suma nada")
@@ -193,6 +205,51 @@ def test_calculo() -> None:
     comprobar(casi(acumulados.total["neto"], 10.0 + PUNTA - 2 * EXCEDENTE_FINAL, 1e-9)
               and casi(acumulados.total["descarga_punta"], 6.0, 1e-9),
               "el total parte de los valores iniciales")
+    print("\nTope de la compensación")
+    from custom_components.ahorro_bateria.calculo import Facturacion, resumen_periodo
+    from custom_components.ahorro_bateria.contador import inicio_periodo
+    from datetime import date
+
+    a = una_hora(0, -3000, PUNTA, consumo_w=500, termino_potencia_dia=0.24)
+    comprobar(casi(a["comp_real"], 3 * EXCEDENTE, 1e-9) and a["energia_real"] == 0
+              and casi(a["comp_sb"], 3 * EXCEDENTE, 1e-9) and casi(a["potencia"], 0.01, 1e-9),
+              "el periodo acumula compensación, energía y potencia sin impuestos")
+    a = una_hora(-2000, -1000, PUNTA, consumo_w=500)
+    comprobar(casi(a["comp_real"], 1 * EXCEDENTE, 1e-9) and casi(a["comp_sb"], 3 * EXCEDENTE, 1e-9),
+              "sin batería se habría exportado también lo que se cargó")
+    a = una_hora(0, 1000, PUNTA)
+    comprobar(casi(a["energia_real"], 0.20, 1e-9), "la energía del periodo va sin impuestos (0,20 €/kWh)")
+
+    periodo = {"energia_real": 6.0, "comp_real": 10.0, "energia_sb": 4.0, "comp_sb": 15.0, "potencia": 3.0}
+    r_ = resumen_periodo(periodo, Facturacion())
+    comprobar(r_["exceso_real"] == 4.0 and r_["exceso_sb"] == 11.0, "exceso = compensación − energía")
+    r_ = resumen_periodo(periodo, Facturacion(tope_incluye_potencia=True))
+    comprobar(r_["exceso_real"] == 1.0 and r_["exceso_sb"] == 8.0, "con la potencia, el tope sube")
+    f = 1.21 * 1.0511
+    comprobar(casi(Facturacion().valor_perdido(4.0, f), 4.0 * f, 1e-12), "sin monedero se pierde todo (con impuestos)")
+    comprobar(Facturacion(monedero=True).valor_perdido(4.0, f) == 0, "con monedero antes de impuestos no se pierde nada")
+    comprobar(casi(Facturacion(monedero=True, monedero_antes_impuestos=False).valor_perdido(4.0, f), 4.0 * (f - 1), 1e-12),
+              "con monedero sobre el total se pierden solo los impuestos")
+
+    acumulados = Acumulados.nuevos("2026-10-14", {"neto": 10.0, "placas": 100.0})
+    acumulados.inicio_periodo = "2026-09-15"
+    acumulados.periodo = dict(periodo)
+    cerrado = acumulados.cerrar_periodo("2026-10-15", Facturacion(), 1.0, con_placas=True)
+    comprobar(casi(acumulados.total["placas"], 100.0 - 11.0, 1e-9) and casi(acumulados.total["neto"], 10.0 + 11.0 - 4.0, 1e-9)
+              and casi(acumulados.instalacion_total, 110.0 - 4.0, 1e-9),
+              "al cerrar: placas − exceso sin batería, instalación − exceso real, batería + la diferencia")
+    comprobar(acumulados.inicio_periodo == "2026-10-15" and acumulados.periodo["comp_real"] == 0
+              and cerrado["inicio"] == "2026-09-15", "y empieza un periodo nuevo")
+
+    comprobar(inicio_periodo(date(2026, 10, 14), 15) == date(2026, 9, 15)
+              and inicio_periodo(date(2026, 10, 15), 15) == date(2026, 10, 15)
+              and inicio_periodo(date(2026, 3, 5), 31) == date(2026, 2, 28)
+              and inicio_periodo(date(2026, 1, 3), 10) == date(2025, 12, 10),
+              "el periodo empieza el día elegido (o el último del mes)")
+
+    acumulados = Acumulados.nuevos("2026-10-13", {"neto": 10.0, "descarga_punta": 5.0})
+    acumulados.sumar(una_hora(1000, 200, PUNTA))
+    acumulados.sumar(una_hora(-2000, -500, PUNTA))
     copia = Acumulados.desde_dict(json.loads(json.dumps(acumulados.a_dict())))
     comprobar(copia == acumulados, "se guarda y se lee igual (JSON)")
 
@@ -337,12 +394,16 @@ async def _recorrido(directorio: Path) -> None:
             e.unique_id.removeprefix(f"{DOMINIO}_"): e.entity_id
             for e in er.async_entries_for_config_entry(registro, entrada.entry_id)
         }
-        comprobar(reales == ENTITY_IDS, "los 17 sensores con sus entity_id (los 13 de la batería, los de las plantillas YAML)"
-                  + ("" if reales == ENTITY_IDS else f" → {sorted(set(reales.values()) ^ set(ENTITY_IDS.values()))}"))
+        esperadas = {**ENTITY_IDS, **CONFIGURACION_IDS}
+        comprobar(reales == esperadas, "21 sensores y 4 ajustes con sus entity_id (los 13 de la batería, los de las plantillas YAML)"
+                  + ("" if reales == esperadas else f" → {sorted(set(reales.values()) ^ set(esperadas.values()))}"))
         dispositivos = dr.async_entries_for_config_entry(dr.async_get(hass), entrada.entry_id)
-        comprobar(sorted(d.name for d in dispositivos) == ["Ahorro batería", "Ahorro instalación", "Ahorro placas"]
+        comprobar(sorted(d.name for d in dispositivos) == ["Ahorro batería", "Ahorro facturación", "Ahorro instalación", "Ahorro placas"]
                   and all(d.entry_type is dr.DeviceEntryType.SERVICE for d in dispositivos),
-                  "tres dispositivos de tipo servicio: batería, placas e instalación")
+                  "cuatro dispositivos de tipo servicio: batería, placas, instalación y facturación")
+        comprobar(entrada.options.get("monedero") is False and entrada.options.get("dia_facturacion") == 1
+                  and hass.states.get(CONFIGURACION_IDS["monedero"]).state == "off",
+                  "por defecto, sin monedero y facturación desde el día 1")
         por_dispositivo = {d.name: {e.entity_id for e in er.async_entries_for_device(registro, d.id)} for d in dispositivos}
         comprobar(por_dispositivo.get("Ahorro placas") == {ENTITY_IDS["placas_hoy"], ENTITY_IDS["placas_total"]}
                   and len(por_dispositivo.get("Ahorro batería", ())) == 13,
@@ -547,11 +608,58 @@ async def _recorrido(directorio: Path) -> None:
         await hass.async_block_till_done()
         comprobar(casi(valor("placas_total"), placas), "al volver a ponerlo, las placas siguen donde estaban")
 
+        # ── Periodo de facturación ──
+        print("\n  · periodo de facturación")
+        mismo = contador()
+        await hass.services.async_call("number", "set_value",
+                                       {"entity_id": CONFIGURACION_IDS["dia_facturacion"], "value": 15}, blocking=True)
+        await hass.async_block_till_done()
+        comprobar(entrada.options["dia_facturacion"] == 15 and contador() is mismo
+                  and contador().acumulados.inicio_periodo == "2026-09-15",
+                  "cambiar el día desde el panel se guarda sin recargar y mueve el inicio del periodo")
+        await potencias(0, -3000, consumo=500)
+        await avanzar(60)
+        resumen = contador().periodo_actual()
+        comprobar(resumen["exceso_real"] > 0 and casi(valor("exceso_periodo"), resumen["exceso_real"])
+                  and hass.states.get(ENTITY_IDS["compensacion_periodo"]).attributes.get("destino_exceso") == "se pierde",
+                  f"con mucho excedente el periodo pasa del tope ({valor('exceso_periodo')} €)")
+        antes = {k: valor(k) for k in ("placas_total", "neto_total", "instalacion_total", "ajuste_tope_total")}
+        exceso_real, exceso_sb = resumen["exceso_real"], resumen["exceso_sb"]
+        reloj.t = _local("2026-10-14T23:50:00")
+        contador().async_actualizar()  # hueco largo: no cuenta
+        await potencias(0, 0, consumo=0)
+        await avanzar(20)
+        comprobar(contador().acumulados.inicio_periodo == "2026-10-15" and valor("compensacion_periodo") == 0,
+                  "el día 15 se cierra el periodo y empieza otro")
+        comprobar(casi(valor("instalacion_total"), antes["instalacion_total"] - exceso_real)
+                  and casi(valor("placas_total"), antes["placas_total"] - exceso_sb)
+                  and casi(valor("neto_total"), antes["neto_total"] + exceso_sb - exceso_real)
+                  and casi(valor("ajuste_tope_total"), antes["ajuste_tope_total"] - exceso_real),
+                  "sin monedero, lo que pasó del tope se descuenta (placas, batería e instalación)")
+        ultimo = hass.states.get(ENTITY_IDS["ajuste_tope_total"]).attributes.get("ultimo_periodo") or {}
+        comprobar(ultimo.get("inicio") == "2026-09-15" and ultimo.get("fin") == "2026-10-15",
+                  "el último periodo cerrado queda a la vista")
+        await hass.services.async_call("switch", "turn_on", {"entity_id": CONFIGURACION_IDS["monedero"]}, blocking=True)
+        await hass.async_block_till_done()
+        comprobar(entrada.options["monedero"] is True and contador() is mismo
+                  and hass.states.get(ENTITY_IDS["compensacion_periodo"]).attributes.get("destino_exceso")
+                  == "monedero (antes de impuestos)",
+                  "el interruptor del monedero cambia la opción sin recargar")
+        menu = await hass.config_entries.options.async_init(entrada.entry_id)
+        paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
+        malo = await hass.config_entries.options.async_configure(
+            paso["flow_id"], {**sin_iva, "monedero": True, "dia_facturacion": 15, "tope_incluye_potencia": True}
+        )
+        comprobar(malo.get("errors") == {"tope_incluye_potencia": "falta_potencia"},
+                  "el tope con potencia pide la potencia y su precio")
+        await hass.config_entries.options.async_configure(malo["flow_id"], {**sin_iva, "monedero": True, "dia_facturacion": 15})
+        await hass.async_block_till_done()
+
         # ── Diagnóstico ──
         from custom_components.ahorro_bateria.diagnostics import async_get_config_entry_diagnostics
 
         diagnostico = await async_get_config_entry_diagnostics(hass, entrada)
-        comprobar(json.dumps(diagnostico) and "acumulados" in diagnostico and "entradas" in diagnostico,
+        comprobar(json.dumps(diagnostico) and "acumulados" in diagnostico and "periodo_actual" in diagnostico,
                   "el diagnóstico se genera y es JSON")
 
         # ── Borrar y volver a dar de alta ──
@@ -571,7 +679,7 @@ async def _recorrido(directorio: Path) -> None:
             e.unique_id.removeprefix(f"{DOMINIO}_"): e.entity_id
             for e in er.async_entries_for_config_entry(er.async_get(hass), nueva.entry_id)
         }
-        comprobar(reales == ENTITY_IDS, "y las entidades recuperan sus entity_id (sin _2)")
+        comprobar(reales == {**ENTITY_IDS, **CONFIGURACION_IDS}, "y las entidades recuperan sus entity_id (sin _2)")
         comprobar(casi(valor("neto_total"), total), "con el total de antes")
 
         # ── Avisos de HA ──

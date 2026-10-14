@@ -1,7 +1,7 @@
 {
   "domain": "ahorro_bateria",
   "name": "Ahorro Solar",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "documentation": "https://github.com/MaxiBass/Integracion_Ahorro_Bateria",
   "issue_tracker": "https://github.com/MaxiBass/Integracion_Ahorro_Bateria/issues",
   "requirements": [],
