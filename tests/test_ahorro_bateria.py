@@ -65,7 +65,12 @@ ENTITY_IDS = {
     "carga_total": "sensor.bateria_total_kwh_carga",
     "carga_hoy": "sensor.bateria_carga_kwh_hoy",
     "carga_red_hoy": "sensor.bateria_carga_red_kwh_hoy",
+    "placas_hoy": "sensor.ahorro_placas_hoy",
+    "placas_total": "sensor.ahorro_placas_total",
+    "instalacion_hoy": "sensor.ahorro_instalacion_hoy",
+    "instalacion_total": "sensor.ahorro_instalacion_total",
 }
+DE_BATERIA = [k for k in ENTITY_IDS if not k.startswith(("placas", "instalacion"))]
 
 
 # ── Ficheros estáticos ───────────────────────────────────────────────
@@ -159,6 +164,27 @@ def test_calculo() -> None:
     comprobar(casi(b["bruto"], PUNTA, 1e-9) and b["descarga_punta"] == b["descarga_llano"] == b["descarga_valle"] == 0,
               "sin periodo conocido: cuenta los euros pero no reparte los kWh")
 
+    print("\nCálculo de las placas (una hora con valores fijos)")
+    a = una_hora(0, -500, PUNTA, consumo_w=1000)
+    comprobar(casi(a["placas"], PUNTA + 0.5 * EXCEDENTE_FINAL, 1e-9) and a["bruto"] == a["coste"] == 0,
+              f"sol sin batería: 1 kWh gastado en casa a precio de compra y 0,5 exportado ({a['placas']:.5f} €)")
+
+    a = una_hora(57, 250, VALLE, periodo="valle", consumo_w=250)
+    comprobar(casi(a["bruto"], 0.057 * VALLE, 1e-9) and casi(a["placas"], -0.057 * VALLE, 1e-9),
+              "de noche, lo que el inversor toma de la batería: + para la batería, − para las placas")
+    comprobar(casi(a["bruto"] + a["placas"], 0, 1e-12), "y la instalación entera ahorra 0, como debe")
+
+    a = una_hora(-2000, -500, PUNTA, consumo_w=1000)
+    total = PUNTA * 1.0 + EXCEDENTE_FINAL * 0.5
+    comprobar(casi(a["placas"], PUNTA + 2.5 * EXCEDENTE_FINAL, 1e-9),
+              f"sol cargando la batería: las placas cuentan también lo que sin batería se exportaría ({a['placas']:.5f} €)")
+    comprobar(casi(a["placas"] - a["coste"], total, 1e-9),
+              f"placas + batería = sin nada − real ({total:.5f} €)")
+
+    a = una_hora(-2000, -500, PUNTA)
+    comprobar(a["placas"] == 0 and casi(a["coste"], 2 * EXCEDENTE_FINAL, 1e-9),
+              "sin dato del consumo: no cuenta placas, pero la batería sí")
+
     acumulados = Acumulados.nuevos("2026-10-13", {"neto": 10.0, "descarga_punta": 5.0})
     acumulados.sumar(una_hora(1000, 200, PUNTA))
     acumulados.sumar(una_hora(-2000, -500, PUNTA))
@@ -243,9 +269,11 @@ async def _recorrido(directorio: Path) -> None:
             contador().async_actualizar()
         await hass.async_block_till_done()
 
-    async def potencias(bateria, red) -> None:
+    async def potencias(bateria, red, consumo=None) -> None:
+        """Sin `consumo`, la casa gasta lo que dan red y batería (sin sol)."""
         fuente("sensor.deye_battery_power", bateria, "W")
         fuente("sensor.deye_grid_ct_power", red, "W")
+        fuente("sensor.deye_load_power", red + bateria if consumo is None else consumo, "W")
         await hass.async_block_till_done()
 
     async def periodo(nombre: str, precio: float) -> None:
@@ -270,7 +298,8 @@ async def _recorrido(directorio: Path) -> None:
             for k in flujo["data_schema"].schema
         }
         comprobar(sugeridos.get("bateria") == "sensor.deye_battery_power"
-                  and sugeridos.get("periodo") == "sensor.periodo_tarifario",
+                  and sugeridos.get("periodo") == "sensor.periodo_tarifario"
+                  and sugeridos.get("consumo") == "sensor.deye_load_power",
                   "el formulario sale relleno con las entidades de casa que existen")
         fuentes = {
             "bateria": "sensor.deye_battery_power",
@@ -282,6 +311,7 @@ async def _recorrido(directorio: Path) -> None:
             "iva": "input_number.precio_iva",
             "impuesto_electrico": "input_number.precio_impuestos_electricidad",
             "periodo": "sensor.periodo_tarifario",
+            "consumo": "sensor.deye_load_power",
         }
         malo = await hass.config_entries.flow.async_configure(
             flujo["flow_id"], {**fuentes, "red": "sensor.deye_battery_power"}
@@ -289,7 +319,7 @@ async def _recorrido(directorio: Path) -> None:
         comprobar(malo.get("errors") == {"red": "misma_entidad"}, "no deja usar la misma entidad para batería y red")
         paso = await hass.config_entries.flow.async_configure(flujo["flow_id"], fuentes)
         comprobar(paso.get("step_id") == "acumulados", "segundo paso: lo acumulado hasta hoy")
-        iniciales = {"neto": 40.0, "descarga_punta": 100.0, "descarga_llano": 120.0,
+        iniciales = {"neto": 40.0, "placas": 300.0, "descarga_punta": 100.0, "descarga_llano": 120.0,
                      "descarga_valle": 80.0, "carga": 400.0}
         fin = await hass.config_entries.flow.async_configure(paso["flow_id"], iniciales)
         await hass.async_block_till_done()
@@ -307,11 +337,16 @@ async def _recorrido(directorio: Path) -> None:
             e.unique_id.removeprefix(f"{DOMINIO}_"): e.entity_id
             for e in er.async_entries_for_config_entry(registro, entrada.entry_id)
         }
-        comprobar(reales == ENTITY_IDS, "los 13 sensores con los mismos entity_id que las plantillas YAML"
+        comprobar(reales == ENTITY_IDS, "los 17 sensores con sus entity_id (los 13 de la batería, los de las plantillas YAML)"
                   + ("" if reales == ENTITY_IDS else f" → {sorted(set(reales.values()) ^ set(ENTITY_IDS.values()))}"))
         dispositivos = dr.async_entries_for_config_entry(dr.async_get(hass), entrada.entry_id)
-        comprobar(len(dispositivos) == 1 and dispositivos[0].entry_type is dr.DeviceEntryType.SERVICE,
-                  "un dispositivo de tipo servicio")
+        comprobar(sorted(d.name for d in dispositivos) == ["Ahorro batería", "Ahorro instalación", "Ahorro placas"]
+                  and all(d.entry_type is dr.DeviceEntryType.SERVICE for d in dispositivos),
+                  "tres dispositivos de tipo servicio: batería, placas e instalación")
+        por_dispositivo = {d.name: {e.entity_id for e in er.async_entries_for_device(registro, d.id)} for d in dispositivos}
+        comprobar(por_dispositivo.get("Ahorro placas") == {ENTITY_IDS["placas_hoy"], ENTITY_IDS["placas_total"]}
+                  and len(por_dispositivo.get("Ahorro batería", ())) == 13,
+                  "cada sensor en su dispositivo")
         hoy = hass.states.get(ENTITY_IDS["neto_hoy"])
         comprobar(hoy.attributes.get("device_class") == "monetary"
                   and hoy.attributes.get("state_class") == "total"
@@ -325,7 +360,8 @@ async def _recorrido(directorio: Path) -> None:
                   and punta.attributes.get("unit_of_measurement") == "kWh",
                   "los kWh son total_increasing, como las plantillas que sustituyen")
         comprobar(casi(valor("neto_total"), 40.0) and casi(valor("descarga_punta_total"), 100.0)
-                  and casi(valor("carga_total"), 400.0) and valor("neto_hoy") == 0,
+                  and casi(valor("carga_total"), 400.0) and valor("neto_hoy") == 0
+                  and casi(valor("placas_total"), 300.0) and casi(valor("instalacion_total"), 340.0),
                   "los totales parten de los valores del alta y lo de hoy de 0")
 
         # ── Una hora descargando en punta ──
@@ -337,6 +373,8 @@ async def _recorrido(directorio: Path) -> None:
         comprobar(casi(valor("descarga_punta_hoy"), 1.0) and casi(valor("descarga_punta_total"), 101.0),
                   "1 kWh de descarga en punta, hoy y en el total")
         comprobar(casi(valor("neto_total"), 40.0 + PUNTA), "el total sube lo mismo")
+        comprobar(valor("placas_hoy") == 0 and casi(valor("instalacion_hoy"), valor("neto_hoy")),
+                  "sin sol las placas no suman, y la instalación es lo de la batería")
 
         antes = {k: valor(k) for k in ENTITY_IDS}
         fuente("sensor.factura_luz", 0.35, "€/kWh")
@@ -372,13 +410,29 @@ async def _recorrido(directorio: Path) -> None:
 
         # ── Carga con sol ──
         print("\n  · carga con sol")
-        await potencias(-2000, -500)
+        placas_antes, instalacion_antes = valor("placas_hoy"), valor("instalacion_hoy")
+        await potencias(-2000, -500, consumo=1000)
         await avanzar(30)
+        comprobar(casi(valor("placas_hoy") - placas_antes, 0.5 * VALLE + 1.25 * EXCEDENTE_FINAL),
+                  "las placas: 0,5 kWh gastados en casa y 1,25 que sin batería se exportarían")
+        comprobar(casi(valor("instalacion_hoy") - instalacion_antes, 0.5 * VALLE + 0.25 * EXCEDENTE_FINAL),
+                  "la instalación: 0,5 kWh en casa y 0,25 exportados de verdad")
         comprobar(casi(valor("coste_hoy"), VALLE + EXCEDENTE_FINAL),
                   f"1 kWh de sol cuesta el excedente con impuestos ({EXCEDENTE_FINAL:.5f} €)")
         comprobar(casi(valor("carga_red_hoy"), 1.0) and casi(valor("carga_hoy"), 2.0), "y no cuenta como carga de red")
         neto = PUNTA - VALLE - EXCEDENTE_FINAL
         comprobar(casi(valor("neto_hoy"), neto), f"neto del día = bruto − coste ({valor('neto_hoy')})")
+
+        # ── Noche: el inversor tira de la batería ──
+        print("\n  · noche")
+        antes = {k: valor(k) for k in ENTITY_IDS}
+        await potencias(57, 250, consumo=250)
+        await avanzar(60)
+        comprobar(casi(valor("neto_total") - antes["neto_total"], 0.057 * VALLE)
+                  and casi(valor("placas_total") - antes["placas_total"], -0.057 * VALLE),
+                  "el consumo del inversor: + para la batería y − para las placas")
+        comprobar(casi(valor("instalacion_total"), antes["instalacion_total"]),
+                  "la instalación entera no ahorra nada de noche")
 
         # ── Valores en kW ──
         fuente("sensor.deye_battery_power", 1.5, "kW")
@@ -411,11 +465,13 @@ async def _recorrido(directorio: Path) -> None:
                   "el total cuenta los 20 minutos")
         comprobar(casi(valor("neto_total"), total_antes + 2 * diez * LLANO), "y el neto total también")
         comprobar(valor("coste_hoy") == 0 and valor("carga_hoy") == 0, "lo de cargar del día anterior vuelve a 0")
+        comprobar(valor("placas_hoy") == 0 and casi(valor("instalacion_hoy"), valor("neto_hoy")),
+                  "y lo de las placas también")
         hoy = hass.states.get(ENTITY_IDS["neto_hoy"])
         comprobar(hoy.attributes.get("last_reset", "").startswith("2026-10-14T00:00:00"),
                   f"last_reset pasa a la nueva medianoche ({hoy.attributes.get('last_reset')})")
 
-        await potencias(-3000, -100)
+        await potencias(-3000, -100, consumo=500)
         await avanzar(60)
         comprobar(valor("neto_hoy") < 0, f"un día en que cuesta más cargar que lo ahorrado sale negativo ({valor('neto_hoy')})")
 
@@ -446,14 +502,16 @@ async def _recorrido(directorio: Path) -> None:
                   "Configurar ofrece cambiar entidades o corregir totales")
         paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "acumulados"})
         sugeridos = {str(k): (k.description or {}).get("suggested_value") for k in paso["data_schema"].schema}
-        comprobar(casi(sugeridos["neto"], valor("neto_total")), "el formulario sale con los totales actuales")
+        comprobar(casi(sugeridos["neto"], valor("neto_total")) and casi(sugeridos["placas"], valor("placas_total")),
+                  "el formulario sale con los totales actuales")
         hoy_antes = valor("neto_hoy")
         fin = await hass.config_entries.options.async_configure(
-            paso["flow_id"], {**{k: sugeridos[k] for k in sugeridos}, "neto": 45.5}
+            paso["flow_id"], {**{k: sugeridos[k] for k in sugeridos}, "neto": 45.5, "placas": 333.3}
         )
         await hass.async_block_till_done()
-        comprobar(fin.get("type") == "create_entry" and casi(valor("neto_total"), 45.5),
-                  "corregir el neto total lo cambia en el momento")
+        comprobar(fin.get("type") == "create_entry" and casi(valor("neto_total"), 45.5)
+                  and casi(valor("placas_total"), 333.3) and casi(valor("instalacion_total"), 378.8),
+                  "corregir los totales los cambia en el momento")
         comprobar(valor("neto_hoy") == hoy_antes, "y no toca lo de hoy")
 
         # ── Configurar: cambiar entidades ──
@@ -468,6 +526,26 @@ async def _recorrido(directorio: Path) -> None:
         comprobar({k: valor(k) for k in ENTITY_IDS} == antes, "cambiar entidades no pierde lo acumulado")
         comprobar(contador().entradas.iva == 0 and contador().entradas.completas,
                   "sin IVA configurado se calcula con 0 %")
+
+        # ── Sin consumo, sin placas; y vuelta ──
+        menu = await hass.config_entries.options.async_init(entrada.entry_id)
+        paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
+        malo = await hass.config_entries.options.async_configure(
+            paso["flow_id"], {**sin_iva, "consumo": "sensor.deye_grid_ct_power"}
+        )
+        comprobar(malo.get("errors") == {"consumo": "misma_entidad"}, "el consumo no puede ser la red")
+        placas = valor("placas_total")
+        sin_consumo = {k: v for k, v in sin_iva.items() if k != "consumo"}
+        await hass.config_entries.options.async_configure(malo["flow_id"], sin_consumo)
+        await hass.async_block_till_done()
+        comprobar(hass.states.get(ENTITY_IDS["placas_total"]).state == "unavailable"
+                  and hass.states.get(ENTITY_IDS["neto_total"]).state != "unavailable",
+                  "sin consumo, los sensores de placas desaparecen y los de la batería siguen")
+        menu = await hass.config_entries.options.async_init(entrada.entry_id)
+        paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
+        await hass.config_entries.options.async_configure(paso["flow_id"], sin_iva)
+        await hass.async_block_till_done()
+        comprobar(casi(valor("placas_total"), placas), "al volver a ponerlo, las placas siguen donde estaban")
 
         # ── Diagnóstico ──
         from custom_components.ahorro_bateria.diagnostics import async_get_config_entry_diagnostics

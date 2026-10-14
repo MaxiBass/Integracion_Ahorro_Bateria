@@ -1,23 +1,31 @@
-"""Cálculo del ahorro de la batería. No depende de Home Assistant.
+"""Cálculo del ahorro de la batería y de las placas. No depende de Home Assistant.
 
-La idea es comparar la red tal como ha sido con la que habría habido sin la
-batería. Si la batería entrega `b` W (positivo al descargar) y la red marca
-`g` W (positivo al importar), sin la batería la red habría marcado `g + b`:
-lo que dio la batería habría salido de la red, y lo que absorbió se habría
-exportado. El ahorro es la diferencia de coste entre los dos casos:
+Se compara, instante a instante, lo que cuesta la red en tres escenarios,
+con el precio de ese instante:
 
-    ahorro = compra × (importado_sin − importado) − venta × (exportado_sin − exportado)
+1. Real: la red marca `g` W (positivo al importar).
+2. Con placas y sin batería: si la batería entrega `b` W (positivo al
+   descargar), sin ella la red habría marcado `g + b`: lo que dio la batería
+   habría salido de la red, y lo que absorbió se habría exportado.
+3. Sin placas ni batería: toda la casa tira de la red, así que la red habría
+   marcado el consumo de la casa `c`.
 
-Con una sola fórmula salen todos los casos:
+Con `coste(x) = compra × importado(x) − venta × exportado(x)`:
 
-- Descarga hacia la casa: ahorra lo que se habría comprado (positivo).
-- Descarga que acaba exportada: vale lo que se cobra por excedente.
-- Carga con sol: cuesta el excedente que se deja de vender (negativo).
-- Carga desde la red: cuesta lo que se compra para cargarla.
+    ahorro batería = coste(g + b) − coste(g)
+    ahorro placas  = coste(c) − coste(g + b)
+    ahorro total   = coste(c) − coste(g) = placas + batería
 
-Lo positivo (descargando) es el «ahorro bruto» y lo negativo (cargando) el
-«coste de la carga»; el neto es la resta. Detalle y ejemplos en
-docs/DECISIONES.md §2.
+De la batería salen todos los casos: descarga hacia la casa (ahorra la
+compra), descarga que acaba exportada (vale el excedente), carga con sol
+(cuesta el excedente que no se vende) y carga desde la red (cuesta lo
+comprado). Lo positivo (descargando) es el «ahorro bruto» y lo negativo
+(cargando) el «coste de la carga».
+
+Las placas ahorran lo que la casa gasta de su producción al precio de
+compra, más lo exportado al precio del excedente. Las pérdidas del inversor
+(también su consumo de noche) caen del lado de las placas: c no las lleva y
+g + b sí. Detalle y ejemplos en docs/DECISIONES.md §2 y §10.
 """
 from __future__ import annotations
 
@@ -26,7 +34,8 @@ from typing import Any
 
 from .const import PERIODOS
 
-# Lo que se acumula por día y en total. "bruto" y "coste" en €, el resto en kWh.
+# Lo que se acumula por día y en total. "bruto", "coste" y "placas" en €,
+# el resto en kWh.
 CLAVES = (
     "bruto",
     "coste",
@@ -35,12 +44,13 @@ CLAVES = (
     "descarga_valle",
     "carga",
     "carga_red",
+    "placas",
 )
-# El total además lleva el neto, que no siempre es bruto − coste: puede
-# arrancar con el valor de otro sistema o corregirse a mano.
+# El total además lleva el neto de la batería, que no siempre es bruto −
+# coste: puede arrancar con el valor de otro sistema o corregirse a mano.
 CLAVES_TOTAL = ("neto", *CLAVES)
 # Lo que se puede fijar al dar de alta o corregir en Configurar.
-CLAVES_CORREGIBLES = ("neto", "descarga_punta", "descarga_llano", "descarga_valle", "carga")
+CLAVES_CORREGIBLES = ("neto", "placas", "descarga_punta", "descarga_llano", "descarga_valle", "carga")
 
 
 @dataclass(frozen=True)
@@ -48,9 +58,9 @@ class Entradas:
     """Valores de las fuentes durante un intervalo.
 
     Potencias en W ya con el signo de la integración (batería positiva al
-    descargar, red positiva al importar). `precio_compra` en €/kWh con
-    impuestos; `precio_venta` en €/kWh sin ellos (se le aplican `iva` e
-    `impuesto_electrico`, en %). None = sin dato.
+    descargar, red positiva al importar; el consumo de la casa, positivo).
+    `precio_compra` en €/kWh con impuestos; `precio_venta` en €/kWh sin
+    ellos (se le aplican `iva` e `impuesto_electrico`, en %). None = sin dato.
     """
 
     bateria_w: float | None = None
@@ -60,9 +70,11 @@ class Entradas:
     iva: float | None = 0.0
     impuesto_electrico: float | None = 0.0
     periodo: str | None = None
+    consumo_w: float | None = None
 
     @property
     def completas(self) -> bool:
+        """Hay lo necesario para la batería (las placas además piden el consumo)."""
         return None not in (
             self.bateria_w,
             self.red_w,
@@ -86,6 +98,12 @@ class Entradas:
             * (1 + self.iva / 100)
         )
 
+    def coste(self, red_w: float) -> float:
+        """€/h que cuesta la red marcando `red_w` (negativo si se cobra)."""
+        return (
+            self.precio_compra * max(red_w, 0.0) - self.precio_venta_final * max(-red_w, 0.0)
+        ) / 1000
+
 
 def aportacion(entradas: Entradas, horas: float) -> dict[str, float]:
     """Lo que suma un intervalo de `horas` con las entradas constantes."""
@@ -94,14 +112,9 @@ def aportacion(entradas: Entradas, horas: float) -> dict[str, float]:
         return salida
 
     bateria, red = entradas.bateria_w, entradas.red_w
-    red_sin = red + bateria
-    importado, exportado = max(red, 0.0), max(-red, 0.0)
-    importado_sin, exportado_sin = max(red_sin, 0.0), max(-red_sin, 0.0)
+    red_sin_bateria = red + bateria
     kwh_por_w = horas / 1000
-    euros = (
-        entradas.precio_compra * (importado_sin - importado)
-        - entradas.precio_venta_final * (exportado_sin - exportado)
-    ) * kwh_por_w
+    euros = (entradas.coste(red_sin_bateria) - entradas.coste(red)) * horas
 
     if bateria > 0:
         salida["bruto"] = euros
@@ -111,7 +124,10 @@ def aportacion(entradas: Entradas, horas: float) -> dict[str, float]:
         salida["coste"] = -euros
         salida["carga"] = -bateria * kwh_por_w
         # Lo que la red da de más por estar cargando la batería.
-        salida["carga_red"] = (importado - importado_sin) * kwh_por_w
+        salida["carga_red"] = (max(red, 0.0) - max(red_sin_bateria, 0.0)) * kwh_por_w
+
+    if entradas.consumo_w is not None:
+        salida["placas"] = (entradas.coste(entradas.consumo_w) - entradas.coste(red_sin_bateria)) * horas
     return salida
 
 
@@ -151,6 +167,14 @@ class Acumulados:
     @property
     def neto_hoy(self) -> float:
         return self.hoy["bruto"] - self.hoy["coste"]
+
+    @property
+    def instalacion_hoy(self) -> float:
+        return self.hoy["placas"] + self.neto_hoy
+
+    @property
+    def instalacion_total(self) -> float:
+        return self.total["placas"] + self.total["neto"]
 
     def sumar(self, aporte: dict[str, float]) -> None:
         for clave in CLAVES:

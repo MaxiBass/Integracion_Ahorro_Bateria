@@ -1,8 +1,8 @@
 """Sensores de Ahorro Batería.
 
-Los `entity_id` son fijos y coinciden con los de las plantillas YAML a las
-que sustituye, para que el panel, el historial y las estadísticas sigan
-igual (DECISIONES §6). No cambiarlos.
+Los `entity_id` son fijos: los de la batería coinciden con los de las
+plantillas YAML a las que sustituye, para que el panel, el historial y las
+estadísticas sigan igual (DECISIONES §6). No cambiarlos.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .calculo import Acumulados
-from .const import DOMAIN
+from .const import CONF_CONSUMO, DOMAIN
 from .contador import ContadorAhorro, senal_actualizado
 from .entity import device_info
 
@@ -39,6 +39,8 @@ class DescripcionAhorro(SensorEntityDescription):
     # Se pone a 0 cada medianoche.
     diario: bool = False
     atributos: Callable[[Acumulados], dict[str, Any]] | None = None
+    # Dispositivo al que pertenece (entity.DISPOSITIVOS).
+    grupo: str = "bateria"
 
 
 def _euros(clave: str, entity_id: str, valor, diario: bool, **extra) -> DescripcionAhorro:
@@ -98,13 +100,38 @@ SENSORES: tuple[DescripcionAhorro, ...] = (
     _kwh("carga_red_hoy", "sensor.bateria_carga_red_kwh_hoy", lambda a: a.hoy["carga_red"], True),
 )
 
+# Solo si está configurado el consumo de la casa (sin él no se puede saber
+# qué habría pasado sin placas).
+SENSORES_PLACAS: tuple[DescripcionAhorro, ...] = (
+    _euros("placas_hoy", "sensor.ahorro_placas_hoy", lambda a: a.hoy["placas"], True, grupo="placas"),
+    _euros("placas_total", "sensor.ahorro_placas_total", lambda a: a.total["placas"], False, grupo="placas"),
+    _euros(
+        "instalacion_hoy", "sensor.ahorro_instalacion_hoy", lambda a: a.instalacion_hoy, True,
+        grupo="instalacion",
+    ),
+    _euros(
+        "instalacion_total",
+        "sensor.ahorro_instalacion_total",
+        lambda a: a.instalacion_total,
+        False,
+        grupo="instalacion",
+        atributos=lambda a: {
+            "placas": round(a.total["placas"], 4),
+            "bateria": round(a.total["neto"], 4),
+        },
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry[ContadorAhorro],
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities(SensorAhorro(entry, descripcion) for descripcion in SENSORES)
+    descripciones = SENSORES
+    if entry.options.get(CONF_CONSUMO):
+        descripciones += SENSORES_PLACAS
+    async_add_entities(SensorAhorro(entry, descripcion) for descripcion in descripciones)
 
 
 class SensorAhorro(SensorEntity):
@@ -122,7 +149,7 @@ class SensorAhorro(SensorEntity):
         # entidades recuperan su entity_id.
         self._attr_unique_id = f"{DOMAIN}_{descripcion.key}"
         self.entity_id = descripcion.entity_id
-        self._attr_device_info = device_info(entry)
+        self._attr_device_info = device_info(entry, descripcion.grupo)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(

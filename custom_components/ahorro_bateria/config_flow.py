@@ -29,6 +29,7 @@ from .calculo import CLAVES_CORREGIBLES
 from .const import (
     CONF_BATERIA,
     CONF_BATERIA_POSITIVA_DESCARGA,
+    CONF_CONSUMO,
     CONF_IMPUESTO_ELECTRICO,
     CONF_INICIALES,
     CONF_IVA,
@@ -57,6 +58,8 @@ ESQUEMA_FUENTES = vol.Schema(
         vol.Optional(CONF_IVA): _VALOR,
         vol.Optional(CONF_IMPUESTO_ELECTRICO): _VALOR,
         vol.Optional(CONF_PERIODO): _PERIODO,
+        # Opcional: sin él no hay ahorro de las placas.
+        vol.Optional(CONF_CONSUMO): _POTENCIA,
     }
 )
 
@@ -72,6 +75,7 @@ ESQUEMA_ACUMULADOS = vol.Schema(
     {
         # El neto puede ser negativo (si la carga ha costado más de lo ahorrado).
         vol.Required("neto", default=0.0): _numero("€", minimo=None),
+        vol.Required("placas", default=0.0): _numero("€", minimo=None),
         vol.Required("descarga_punta", default=0.0): _numero("kWh"),
         vol.Required("descarga_llano", default=0.0): _numero("kWh"),
         vol.Required("descarga_valle", default=0.0): _numero("kWh"),
@@ -87,6 +91,8 @@ def _sugeridas(hass: HomeAssistant) -> dict[str, Any]:
 def _validar_fuentes(datos: dict[str, Any]) -> dict[str, str]:
     if datos[CONF_BATERIA] == datos[CONF_RED]:
         return {CONF_RED: "misma_entidad"}
+    if datos.get(CONF_CONSUMO) in (datos[CONF_BATERIA], datos[CONF_RED]):
+        return {CONF_CONSUMO: "misma_entidad"}
     return {}
 
 

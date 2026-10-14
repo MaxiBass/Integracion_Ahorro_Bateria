@@ -43,6 +43,7 @@ from .const import (
     ALIAS_PERIODO,
     CONF_BATERIA,
     CONF_BATERIA_POSITIVA_DESCARGA,
+    CONF_CONSUMO,
     CONF_IMPUESTO_ELECTRICO,
     CONF_INICIALES,
     CONF_IVA,
@@ -274,6 +275,7 @@ class ContadorAhorro:
             iva=con_respaldo(CONF_IVA, anterior.iva),
             impuesto_electrico=con_respaldo(CONF_IMPUESTO_ELECTRICO, anterior.impuesto_electrico),
             periodo=periodo,
+            consumo_w=numero(CONF_CONSUMO),
         )
 
     # ── Diagnóstico ────────────────────────────────────────────────────

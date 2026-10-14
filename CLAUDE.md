@@ -1,8 +1,8 @@
 # Integracion_Ahorro_Bateria
 
-Repositorio de la integración custom de Home Assistant "Ahorro Batería" de
-Maxi: cuánto ahorra la batería solar (descargas que evitan comprar menos
-cargas que cuestan excedente o red). Sustituye al paquete YAML
+Repositorio de la integración custom de Home Assistant "Ahorro Solar" (dominio
+`ahorro_bateria`) de Maxi: cuánto ahorran la batería y las placas, por
+separado, frente a no tenerlas. Sustituye al paquete YAML
 `calculo_ahorro_bateria`. Es la **fuente de verdad** del código y la fuente
 desde la que HACS la instala.
 
@@ -33,8 +33,8 @@ custom_components/ahorro_bateria/
   calculo.py      la fórmula y los acumulados (sin Home Assistant)
   contador.py     escucha las fuentes, va sumando, medianoche, disco
   __init__.py     alta y baja de la entrada
-  sensor.py       los 13 sensores (entity_id fijos)
-  entity.py       dispositivo de tipo servicio
+  sensor.py       13 sensores de batería + 4 de placas/instalación (entity_id fijos)
+  entity.py       dispositivos de tipo servicio (batería, placas, instalación)
   config_flow.py  alta en dos pasos y Configurar (entidades / totales)
   diagnostics.py  diagnóstico descargable
   strings.json, translations/, icons.json

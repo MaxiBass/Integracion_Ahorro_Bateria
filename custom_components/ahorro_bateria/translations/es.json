@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Ahorro batería",
+        "title": "Ahorro solar",
         "description": "Entidades de las que sale el cálculo. Se pueden cambiar después en Configurar.",
         "data": {
           "bateria": "Potencia de la batería",
@@ -13,7 +13,8 @@
           "precio_venta": "Precio de los excedentes",
           "iva": "IVA",
           "impuesto_electrico": "Impuesto eléctrico",
-          "periodo": "Periodo tarifario"
+          "periodo": "Periodo tarifario",
+          "consumo": "Consumo de la casa"
         },
         "data_description": {
           "bateria": "En W o kW.",
@@ -24,14 +25,16 @@
           "precio_venta": "€/kWh que te compensan por cada kWh exportado, sin impuestos.",
           "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
           "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
-          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo."
+          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo.",
+          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas."
         }
       },
       "acumulados": {
         "title": "Lo acumulado hasta hoy",
         "description": "Si vienes de otro sistema (por ejemplo, plantillas YAML), pon aquí sus totales para no empezar de cero. Si ya tenías la integración y la borraste, el formulario sale con lo que tenía guardado.",
         "data": {
-          "neto": "Ahorro neto acumulado",
+          "neto": "Ahorro neto de la batería acumulado",
+          "placas": "Ahorro de las placas acumulado",
           "descarga_punta": "Descargado en punta",
           "descarga_llano": "Descargado en llano",
           "descarga_valle": "Descargado en valle",
@@ -40,7 +43,7 @@
       }
     },
     "error": {
-      "misma_entidad": "La batería y la red no pueden ser la misma entidad."
+      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas."
     },
     "abort": {
       "single_instance_allowed": "Ya está configurada: solo puede haber una."
@@ -49,7 +52,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Ahorro batería",
+        "title": "Ahorro solar",
         "menu_options": {
           "fuentes": "Cambiar las entidades de origen",
           "acumulados": "Corregir los totales acumulados"
@@ -66,7 +69,8 @@
           "precio_venta": "Precio de los excedentes",
           "iva": "IVA",
           "impuesto_electrico": "Impuesto eléctrico",
-          "periodo": "Periodo tarifario"
+          "periodo": "Periodo tarifario",
+          "consumo": "Consumo de la casa"
         },
         "data_description": {
           "bateria": "En W o kW.",
@@ -77,14 +81,16 @@
           "precio_venta": "€/kWh que te compensan por cada kWh exportado, sin impuestos.",
           "iva": "En %. Se aplica al precio de los excedentes (con compensación simplificada también se deja de pagar IVA sobre ellos).",
           "impuesto_electrico": "En %. Se aplica al precio de los excedentes, igual que el IVA.",
-          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo."
+          "periodo": "Estado Punta/Llano/Valle (o P1/P2/P3). Solo sirve para repartir los kWh descargados por periodo.",
+          "consumo": "En W o kW: todo lo que gasta la casa. Sin él no se calcula el ahorro de las placas."
         }
       },
       "acumulados": {
         "title": "Corregir los totales",
         "description": "Sustituye los totales acumulados por estos valores. Lo de hoy no cambia.",
         "data": {
-          "neto": "Ahorro neto acumulado",
+          "neto": "Ahorro neto de la batería acumulado",
+          "placas": "Ahorro de las placas acumulado",
           "descarga_punta": "Descargado en punta",
           "descarga_llano": "Descargado en llano",
           "descarga_valle": "Descargado en valle",
@@ -93,7 +99,7 @@
       }
     },
     "error": {
-      "misma_entidad": "La batería y la red no pueden ser la misma entidad."
+      "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas."
     },
     "abort": {
       "no_cargada": "La integración no está cargada; vuelve a intentarlo cuando lo esté."
@@ -139,6 +145,18 @@
       },
       "carga_red_hoy": {
         "name": "Carga desde la red hoy"
+      },
+      "placas_hoy": {
+        "name": "Hoy"
+      },
+      "placas_total": {
+        "name": "Acumulado"
+      },
+      "instalacion_hoy": {
+        "name": "Hoy"
+      },
+      "instalacion_total": {
+        "name": "Acumulado"
       }
     }
   }

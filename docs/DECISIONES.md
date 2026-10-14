@@ -1,4 +1,4 @@
-# Ahorro Batería — Registro de decisiones
+# Ahorro Solar (antes Ahorro Batería) — Registro de decisiones
 
 Este documento no explica qué hace el código (para eso están los docstrings
 de cada fichero). Recoge por qué se hizo así, qué se probó y qué queda
@@ -168,3 +168,56 @@ largo, medianoche, recarga, HA parado, Configurar, diagnóstico, borrar y
 volver a dar de alta). Para comprobar que las pruebas pillan fallos se
 rompió a propósito el tope de §4 y los impuestos de §3: 9 comprobaciones
 en rojo.
+
+## 10. Las placas (v0.2.0, 14/10/2026)
+
+Maxi pidió ver, junto al de la batería, lo que ahorran las placas frente a
+no tenerlas, separado. Se añadió un tercer escenario a §2: sin placas ni
+batería, la red habría marcado el consumo de la casa `c`. Entonces:
+
+    batería     = coste(g + b) − coste(g)      (lo de siempre)
+    placas      = coste(c)     − coste(g + b)
+    instalación = coste(c)     − coste(g)      = placas + batería
+
+Las tres se suman exactas, sin contar nada dos veces. Mismo precio de
+compra del momento (por tramo) y mismo excedente con impuestos (§3).
+
+`c` es el consumo de la casa en alterna (en un Deye con pinza externa,
+`sensor.deye_load_power` = salida del inversor + red; comprobado el 14/10:
+2758,5 W − 1258 W exportados = 1500,5 W). La batería es de continua, así
+que `g + b` lleva las pérdidas del inversor y `c` no: **las pérdidas del
+inversor caen del lado de las placas**, que es donde tienen sentido (el
+inversor está por las placas). De noche se ve claro: el inversor toma unos
+50–60 W de la batería, eso cuenta + para la batería (sin ella saldría de la
+red) y − para las placas, y la instalación entera ahorra 0.
+
+El consumo es opcional: sin él no se crean los sensores de placas e
+instalación, y si falta un momento (no disponible) solo se deja de contar
+lo de las placas.
+
+Van en dos dispositivos aparte, «Ahorro placas» y «Ahorro instalación»,
+para no mezclarse con los 13 de la batería. La integración pasa a llamarse
+«Ahorro Solar»; el dominio sigue siendo `ahorro_bateria` (cambiarlo
+rompería las entidades).
+
+## 11. Histórico de las placas desde las estadísticas (14/10/2026)
+
+Para no empezar las placas de cero, el total de partida se calculó con las
+estadísticas horarias de HA desde el mismo día en que empezó a contar la
+batería (con el sistema YAML), hora a hora y con el precio de cada hora:
+
+    instalación_h = precio_h × (consumo_h − importado_h) + excedente × exportado_h
+    batería_h     = precio_h × descargado_h − excedente × cargado_h
+    placas_h      = instalación_h − batería_h
+
+(contadores totales del inversor: consumo, importado, exportado, cargado y
+descargado; precio = media horaria del sensor de precio, que es exacta
+porque los tramos cambian en hora en punto). La batería calculada así salió
+prácticamente igual que la que traía la integración, lo que da confianza en
+las dos. La hora a hora supone que lo cargado venía del sol y lo descargado
+evitaba compra, igual que el YAML; la carga desde la red apenas se ha usado.
+
+Si el inversor deja de mandar datos unas horas, la energía de esas horas
+llega de golpe en la primera hora con datos y se valora a su precio. Pasó
+dos veces: un sábado (todo valle, sin efecto) y una tarde de viernes que
+quedó a precio de valle (unos 2 € de menos como mucho).

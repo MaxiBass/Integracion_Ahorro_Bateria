@@ -16,6 +16,7 @@ CONF_PRECIO_VENTA = "precio_venta"
 CONF_IVA = "iva"
 CONF_IMPUESTO_ELECTRICO = "impuesto_electrico"
 CONF_PERIODO = "periodo"
+CONF_CONSUMO = "consumo"
 
 FUENTES = (
     CONF_BATERIA,
@@ -25,6 +26,7 @@ FUENTES = (
     CONF_IVA,
     CONF_IMPUESTO_ELECTRICO,
     CONF_PERIODO,
+    CONF_CONSUMO,
 )
 
 # Lo acumulado antes de instalar la integración: va en los datos de la
@@ -41,6 +43,7 @@ SUGERIDAS = {
     CONF_IVA: "input_number.precio_iva",
     CONF_IMPUESTO_ELECTRICO: "input_number.precio_impuestos_electricidad",
     CONF_PERIODO: "sensor.periodo_tarifario",
+    CONF_CONSUMO: "sensor.deye_load_power",
 }
 
 PERIODOS = ("punta", "llano", "valle")

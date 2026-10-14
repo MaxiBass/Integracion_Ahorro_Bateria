@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Battery savings",
+        "title": "Solar savings",
         "description": "Entities the calculation is based on. They can be changed later in Configure.",
         "data": {
           "bateria": "Battery power",
@@ -13,7 +13,8 @@
           "precio_venta": "Surplus (export) price",
           "iva": "VAT",
           "impuesto_electrico": "Electricity tax",
-          "periodo": "Tariff period"
+          "periodo": "Tariff period",
+          "consumo": "House consumption"
         },
         "data_description": {
           "bateria": "In W or kW.",
@@ -24,14 +25,16 @@
           "precio_venta": "€/kWh credited for each exported kWh, before taxes.",
           "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
           "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
-          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period."
+          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period.",
+          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated."
         }
       },
       "acumulados": {
         "title": "Totals so far",
         "description": "If you come from another setup (e.g. YAML templates), enter its totals here so you don't start from zero. If you had the integration and removed it, the form is pre-filled with what it had saved.",
         "data": {
-          "neto": "Accumulated net savings",
+          "neto": "Accumulated net battery savings",
+          "placas": "Accumulated solar panel savings",
           "descarga_punta": "Discharged in peak (punta)",
           "descarga_llano": "Discharged in mid-peak (llano)",
           "descarga_valle": "Discharged in off-peak (valle)",
@@ -40,7 +43,7 @@
       }
     },
     "error": {
-      "misma_entidad": "Battery and grid cannot be the same entity."
+      "misma_entidad": "Battery, grid and consumption must be different entities."
     },
     "abort": {
       "single_instance_allowed": "Already configured: only one instance is allowed."
@@ -49,7 +52,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Battery savings",
+        "title": "Solar savings",
         "menu_options": {
           "fuentes": "Change the source entities",
           "acumulados": "Correct the accumulated totals"
@@ -66,7 +69,8 @@
           "precio_venta": "Surplus (export) price",
           "iva": "VAT",
           "impuesto_electrico": "Electricity tax",
-          "periodo": "Tariff period"
+          "periodo": "Tariff period",
+          "consumo": "House consumption"
         },
         "data_description": {
           "bateria": "In W or kW.",
@@ -77,14 +81,16 @@
           "precio_venta": "€/kWh credited for each exported kWh, before taxes.",
           "iva": "In %. Applied to the surplus price (with Spanish net billing, VAT is also saved on it).",
           "impuesto_electrico": "In %. Applied to the surplus price, like VAT.",
-          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period."
+          "periodo": "Punta/Llano/Valle (or P1/P2/P3) state. Only used to split the discharged kWh by period.",
+          "consumo": "In W or kW: everything the house uses. Without it, solar panel savings are not calculated."
         }
       },
       "acumulados": {
         "title": "Correct the totals",
         "description": "Replaces the accumulated totals with these values. Today's values don't change.",
         "data": {
-          "neto": "Accumulated net savings",
+          "neto": "Accumulated net battery savings",
+          "placas": "Accumulated solar panel savings",
           "descarga_punta": "Discharged in peak (punta)",
           "descarga_llano": "Discharged in mid-peak (llano)",
           "descarga_valle": "Discharged in off-peak (valle)",
@@ -93,7 +99,7 @@
       }
     },
     "error": {
-      "misma_entidad": "Battery and grid cannot be the same entity."
+      "misma_entidad": "Battery, grid and consumption must be different entities."
     },
     "abort": {
       "no_cargada": "The integration is not loaded; try again once it is."
@@ -139,6 +145,18 @@
       },
       "carga_red_hoy": {
         "name": "Charge from grid today"
+      },
+      "placas_hoy": {
+        "name": "Today"
+      },
+      "placas_total": {
+        "name": "Accumulated"
+      },
+      "instalacion_hoy": {
+        "name": "Today"
+      },
+      "instalacion_total": {
+        "name": "Accumulated"
       }
     }
   }
