@@ -221,3 +221,23 @@ Si el inversor deja de mandar datos unas horas, la energía de esas horas
 llega de golpe en la primera hora con datos y se valora a su precio. Pasó
 dos veces: un sábado (todo valle, sin efecto) y una tarde de viernes que
 quedó a precio de valle (unos 2 € de menos como mucho).
+
+## 12. Impuestos de los helpers y tope de la compensación (14/10/2026)
+
+Contrastado con una factura real de Maxi: los precios de energía de los
+helpers, el del excedente, el IVA (21 %) y el impuesto eléctrico (5,11269 %)
+cuadran, y la factura confirma §3: la compensación se resta del término de
+energía **antes** del impuesto eléctrico y del IVA.
+
+Pero los helpers de IVA e impuesto eléctrico estuvieron en 10 % y 0,5 %
+desde finales de marzo hasta el 13/10 (las facturas llevaban 21 % y
+5,11 %). Todo lo acumulado en ese periodo (batería y placas) se revalorizó
+por (1,0511 × 1,21) / (1,005 × 1,10) ≈ 1,1505 con «Corregir los totales».
+
+**Tope de la compensación** (no modelado): el excedente compensado nunca
+puede pasar del término de energía del periodo de facturación; lo que sobra
+se pierde. Con meses naturales como aproximación, en los meses de más sol
+(abril sobre todo) se perdió parte de la compensación, así que en esos meses
+el ahorro de las placas (y el de la instalación) queda algo sobrevalorado y
+el coste de cargar la batería con sol, algo inflado: ese excedente no valía
+nada. Modelarlo exige conocer las fechas de cada periodo de facturación.
