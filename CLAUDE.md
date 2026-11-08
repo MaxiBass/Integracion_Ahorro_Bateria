@@ -18,10 +18,10 @@ Es **público** a propósito, porque HACS no lee repos privados. Por eso:
 - Repo local: `~/Downloads/GitHub/Integracion_Ahorro_Bateria`
 - HA real por Samba: `/Volumes/config` (si no está montado:
   `osascript -e 'mount volume "smb://192.168.1.9/config"'`).
-- **GitHub CLI** (`gh`, cuenta MaxiBass): Claude Code puede hacer push
-  **cuando Maxi lo pida**, sin tocar la configuración global de git:
-  `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main`.
-  Antes, revisar que el diff no lleve datos personales.
+- Esta sesión puede hacer `git push` directamente (credenciales de `gh`, cuenta
+  MaxiBass; Maxi confirmó el push directo el 08/11/2026); el flujo y las reglas
+  están en `~/.claude/CLAUDE.md`. Antes, revisar que el diff no lleve datos
+  personales: el repo es público.
 - **HACS sigue commits, no versiones** (no hay releases): para instalar sin
   la interfaz, `update.install` sobre la entidad `update.*` de la
   integración con `version` = hash **corto** del commit.
@@ -61,7 +61,7 @@ En particular:
 
 1. Editar en el repo, dentro de `custom_components/ahorro_bateria/`.
 2. Pasar las pruebas (abajo).
-3. Commit. Push: Maxi, o Claude Code con `gh` si se lo pide.
+3. Commit y push (revisando antes el diff, ver `~/.claude/CLAUDE.md`).
 4. Subir la `version` de `manifest.json` cuando esté listo para probar.
 5. Actualizar desde HACS (o `update.install`) y reiniciar HA.
 
