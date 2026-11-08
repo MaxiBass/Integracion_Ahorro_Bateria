@@ -209,15 +209,22 @@ class OpcionesAhorroBateria(OptionsFlowWithReload):
         if contador is None:
             return self.async_abort(reason="no_cargada")
 
+        errores: dict[str, str] = {}
         if user_input is not None:
-            await contador.async_corregir(user_input)
-            # Las opciones no cambian, así que no se recarga nada.
-            return self.async_create_entry(data=dict(self.config_entry.options))
+            # Los kWh son total_increasing: bajarlos lo tomaría HA por un
+            # reinicio del contador y descuadraría las estadísticas.
+            errores = {clave: "no_bajar" for clave in contador.acumulados.bajadas(user_input)}
+            if not errores:
+                await contador.async_corregir(user_input)
+                # Las opciones no cambian, así que no se recarga nada.
+                return self.async_create_entry(data=dict(self.config_entry.options))
 
         total = contador.acumulados.total
         return self.async_show_form(
             step_id="acumulados",
             data_schema=self.add_suggested_values_to_schema(
-                ESQUEMA_ACUMULADOS, {k: round(total[k], 4) for k in CLAVES_CORREGIBLES}
+                ESQUEMA_ACUMULADOS,
+                user_input or {k: round(total[k], 4) for k in CLAVES_CORREGIBLES},
             ),
+            errors=errores,
         )

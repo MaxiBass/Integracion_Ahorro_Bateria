@@ -38,7 +38,14 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .calculo import Acumulados, Entradas, Facturacion, aportacion, resumen_periodo
+from .calculo import (
+    Acumulados,
+    Entradas,
+    Facturacion,
+    aportacion,
+    inicio_periodo,
+    resumen_periodo,
+)
 from .const import (
     ALIAS_PERIODO,
     CONF_DIA_FACTURACION,
@@ -81,24 +88,6 @@ def _dia_local(momento: datetime) -> str:
     return dt_util.as_local(momento).date().isoformat()
 
 
-def inicio_periodo(dia: date, dia_facturacion: int) -> date:
-    """Primer día del periodo de facturación que contiene `dia`.
-
-    Los periodos empiezan el día `dia_facturacion` de cada mes; en los meses
-    más cortos, el último día del mes.
-    """
-
-    def en_mes(anio: int, mes: int) -> date:
-        siguiente = date(anio + mes // 12, mes % 12 + 1, 1)
-        return date(anio, mes, min(dia_facturacion, (siguiente - timedelta(days=1)).day))
-
-    candidato = en_mes(dia.year, dia.month)
-    if candidato <= dia:
-        return candidato
-    anterior = date(dia.year, dia.month, 1) - timedelta(days=1)
-    return en_mes(anterior.year, anterior.month)
-
-
 # Un solo fichero (.storage/ahorro_bateria): solo hay una entrada por
 # instalación, y así lo acumulado sobrevive a borrar la integración por
 # error; el alta siguiente lo propone como punto de partida (config_flow).
@@ -122,7 +111,12 @@ class ContadorAhorro:
         self.opciones = dict(entry.options)
         self.almacen: Store[dict[str, Any]] = Store(hass, VERSION_ALMACEN, CLAVE_ALMACEN)
         self.acumulados = Acumulados.nuevos(_dia_local(_ahora()))
-        self.entradas = Entradas()
+        # Sin impuestos conocidos hasta leer las fuentes (Entradas() los
+        # daría por 0 %, y un periodo cerrado con eso perdería el ajuste).
+        self.entradas = Entradas(iva=None, impuesto_electrico=None)
+        # Resumen del periodo de facturación, recalculado una vez por
+        # refresco (lo leen varios sensores).
+        self.periodo_en_curso: dict[str, Any] = {}
         # Inicio del intervalo en curso (None: no hay intervalo abierto).
         self._desde: datetime | None = None
         self.ultimo_cierre: datetime | None = None
@@ -143,14 +137,24 @@ class ContadorAhorro:
                 _dia_local(_ahora()), self.entry.data.get(CONF_INICIALES)
             )
             await self.almacen.async_save(self._datos())
-        if self.acumulados.inicio_periodo is None:
-            # Primera vez: el periodo en curso se cuenta desde ahora.
-            self.acumulados.inicio_periodo = self._inicio_periodo(self.acumulados.dia).isoformat()
+        # El periodo en curso empieza el día de facturación del mes (aunque lo
+        # acumulado en él solo cuente desde que se instaló la integración).
+        # Se recalcula también si el día se cambió en Configurar, que recarga
+        # sin pasar por `async_cambiar_facturacion`; lo acumulado se conserva.
+        inicio = self._inicio_periodo(self.acumulados.dia).isoformat()
+        if self.acumulados.inicio_periodo != inicio:
+            self.acumulados.inicio_periodo = inicio
+        # Las fuentes se leen antes de mirar si ha cambiado el día: si HA
+        # estaba parado al empezar un periodo nuevo, el que acaba se cierra
+        # con los impuestos de verdad (o, si aún no hay, con los últimos
+        # guardados), no con 0 %.
+        self._tomar_entradas()
         self._comprobar_dia(_ahora())
+        self._recalcular_periodo()
 
     @callback
     def async_arrancar(self) -> None:
-        self.entradas = self._leer_entradas()
+        self._tomar_entradas()
         self._desde = _ahora()
         fuentes = [eid for clave in FUENTES if (eid := self.opciones.get(clave))]
         self._quitar = [
@@ -192,7 +196,7 @@ class ContadorAhorro:
     def _al_cambiar_fuente(self, _event: Event[EventStateChangedData]) -> None:
         ahora = _ahora()
         self._cerrar_intervalo(ahora)
-        self.entradas = self._leer_entradas()
+        self._tomar_entradas()
 
     @callback
     def _al_refrescar(self, _now: datetime | None = None) -> None:
@@ -202,6 +206,11 @@ class ContadorAhorro:
     def async_actualizar(self) -> None:
         """Cierra el intervalo en curso y refresca los sensores."""
         self._cerrar_intervalo(_ahora())
+        self._avisar()
+
+    @callback
+    def _avisar(self) -> None:
+        self._recalcular_periodo()
         async_dispatcher_send(self.hass, senal_actualizado(self.entry.entry_id))
 
     async def async_cambiar_facturacion(self, clave: str, valor: Any) -> None:
@@ -213,14 +222,14 @@ class ContadorAhorro:
             # Lo acumulado sigue; solo cambia cuándo se cierra el periodo.
             self.acumulados.inicio_periodo = self._inicio_periodo(self.acumulados.dia).isoformat()
         await self.almacen.async_save(self._datos())
-        async_dispatcher_send(self.hass, senal_actualizado(self.entry.entry_id))
+        self._avisar()
 
     async def async_corregir(self, valores: dict[str, Any]) -> None:
         """Fija los totales (desde Configurar) y lo guarda en el momento."""
         self._cerrar_intervalo(_ahora())
         self.acumulados.corregir(valores)
         await self.almacen.async_save(self._datos())
-        async_dispatcher_send(self.hass, senal_actualizado(self.entry.entry_id))
+        self._avisar()
 
     # ── Cuenta ─────────────────────────────────────────────────────────
 
@@ -275,8 +284,12 @@ class ContadorAhorro:
     # ── Facturación ────────────────────────────────────────────────────
 
     def _factor_impuestos(self) -> float:
-        iva, iee = self.entradas.iva, self.entradas.impuesto_electrico
-        return 1.0 if iva is None or iee is None else (1 + iee / 100) * (1 + iva / 100)
+        """Impuestos actuales; si aún no se conocen, los últimos guardados."""
+        if self.entradas.iva is not None and self.entradas.impuesto_electrico is not None:
+            return self.entradas.factor_impuestos
+        if self.acumulados.factor_impuestos is not None:
+            return self.acumulados.factor_impuestos
+        return 1.0
 
     def opcion(self, clave: str) -> Any:
         return self.opciones.get(clave, FACTURACION_POR_DEFECTO[clave])
@@ -291,6 +304,9 @@ class ContadorAhorro:
 
     def _inicio_periodo(self, dia: str) -> date:
         return inicio_periodo(date.fromisoformat(dia), int(self.opcion(CONF_DIA_FACTURACION)))
+
+    def _recalcular_periodo(self) -> None:
+        self.periodo_en_curso = self.periodo_actual()
 
     def periodo_actual(self) -> dict[str, Any]:
         """Lo que llevamos del periodo de facturación, para los sensores."""
@@ -316,11 +332,16 @@ class ContadorAhorro:
 
     # ── Lectura de las fuentes ─────────────────────────────────────────
 
+    def _tomar_entradas(self) -> None:
+        self.entradas = self._leer_entradas()
+        if self.entradas.iva is not None and self.entradas.impuesto_electrico is not None:
+            self.acumulados.factor_impuestos = self.entradas.factor_impuestos
+
     def _leer_entradas(self) -> Entradas:
         anterior = self.entradas
         opciones = self.opciones
 
-        def numero(clave: str) -> float | None:
+        def numero(clave: str, sin_unidad_kw: bool = False) -> float | None:
             entity_id = opciones.get(clave)
             estado = self.hass.states.get(entity_id) if entity_id else None
             if estado is None or estado.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
@@ -331,7 +352,10 @@ class ContadorAhorro:
                 return None
             if not math.isfinite(valor):
                 return None
-            if estado.attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfPower.KILO_WATT:
+            unidad = estado.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+            # La potencia contratada suele estar en un input_number sin
+            # unidad: entonces son kW (nadie contrata 4,6 W).
+            if unidad == UnitOfPower.KILO_WATT or (sin_unidad_kw and not unidad):
                 valor *= 1000
             return valor
 
@@ -353,7 +377,10 @@ class ContadorAhorro:
         periodo = None
         if entity_id := opciones.get(CONF_PERIODO):
             estado = self.hass.states.get(entity_id)
-            if estado is not None:
+            if estado is None or estado.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+                # Como con los precios: se sigue con el último periodo bueno.
+                periodo = anterior.periodo
+            else:
                 periodo = ALIAS_PERIODO.get(estado.state.strip().lower())
 
         return Entradas(
@@ -371,8 +398,8 @@ class ContadorAhorro:
     def _termino_potencia(self, numero, previo: float | None) -> float | None:
         """€/día sin impuestos del término de potencia (punta + valle).
 
-        La potencia se lee en W (o kW) y el precio en €/kW·día. Si falta un
-        dato configurado, se sigue con el último bueno.
+        La potencia se lee en W o kW (sin unidad, kW) y el precio en
+        €/kW·día. Si falta un dato configurado, se sigue con el último bueno.
         """
         pares = [
             (CONF_POTENCIA_PUNTA, CONF_PRECIO_POTENCIA_PUNTA),
@@ -383,7 +410,7 @@ class ContadorAhorro:
             return None
         total = 0.0
         for clave_potencia, clave_precio in configurados:
-            vatios, precio = numero(clave_potencia), numero(clave_precio)
+            vatios, precio = numero(clave_potencia, sin_unidad_kw=True), numero(clave_precio)
             if vatios is None or precio is None:
                 return previo
             total += vatios / 1000 * precio
@@ -400,3 +427,6 @@ class ContadorAhorro:
             "facturacion": {k: self.opcion(k) for k in FACTURACION_POR_DEFECTO},
             "periodo_actual": self.periodo_actual(),
         }
+
+
+type EntradaAhorro = ConfigEntry[ContadorAhorro]

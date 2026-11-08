@@ -1,4 +1,6 @@
-"""Ahorro Batería: cuánto ahorra la batería de una instalación solar.
+"""Ahorro Solar (dominio ahorro_bateria): cuánto ahorran la batería y las
+placas de una instalación solar, por separado, y el tope de la compensación
+en cada periodo de facturación.
 
 Sustituye al paquete YAML `calculo_ahorro_bateria` (plantillas, sumas de
 Riemann, utility_meter, input_number y una automatización). Ver README y
@@ -6,17 +8,14 @@ docs/DECISIONES.md.
 """
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from .contador import ContadorAhorro
+from .contador import ContadorAhorro, EntradaAhorro
 from .entity import device_info
 
 PLATFORMS = [Platform.SENSOR, Platform.SWITCH, Platform.NUMBER]
-
-type EntradaAhorro = ConfigEntry[ContadorAhorro]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: EntradaAhorro) -> bool:

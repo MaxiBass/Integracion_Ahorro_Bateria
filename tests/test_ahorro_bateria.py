@@ -116,6 +116,14 @@ def test_ficheros() -> None:
         set(iconos["entity"]["sensor"]) == set(es["entity"]["sensor"]) == set(ENTITY_IDS),
         "cada sensor tiene nombre e icono",
     )
+    comprobar(
+        {d: set(iconos["entity"].get(d, {})) for d in ("switch", "number")}
+        == {d: set(es["entity"][d]) for d in ("switch", "number")}
+        == {"switch": {k for k in CONFIGURACION_IDS if k != "dia_facturacion"}, "number": {"dia_facturacion"}},
+        "los ajustes también tienen nombre e icono en icons.json",
+    )
+    hacs = json.loads((RAIZ / "hacs.json").read_text("utf-8"))
+    comprobar(bool(hacs.get("homeassistant")), "hacs.json indica la versión mínima de HA")
 
     from PIL import Image
 
@@ -130,9 +138,28 @@ def test_ficheros() -> None:
 # ── Cálculo puro ─────────────────────────────────────────────────────
 
 
+def _calculo_puro():
+    """`calculo.py` sin pasar por el paquete (su __init__ importa HA).
+
+    Se registra un paquete vacío que apunta a la carpeta de la integración,
+    para que el `from .const import` de calculo.py funcione sin ejecutar
+    `__init__.py`. Así el cálculo se prueba aunque HA no esté instalado.
+    """
+    import importlib
+    import types
+
+    if "ahorro_puro" not in sys.modules:
+        paquete = types.ModuleType("ahorro_puro")
+        paquete.__path__ = [str(BASE)]
+        sys.modules["ahorro_puro"] = paquete
+    return importlib.import_module("ahorro_puro.calculo")
+
+
 def test_calculo() -> None:
     print("\nCálculo (una hora con valores fijos)")
-    from custom_components.ahorro_bateria.calculo import Acumulados, Entradas, aportacion
+    calculo = _calculo_puro()
+    comprobar("homeassistant" not in sys.modules, "el cálculo se carga sin Home Assistant")
+    Acumulados, Entradas, aportacion = calculo.Acumulados, calculo.Entradas, calculo.aportacion
 
     def una_hora(bateria, red, compra, periodo="punta", **extra):
         return aportacion(
@@ -161,7 +188,7 @@ def test_calculo() -> None:
     comprobar(casi(a["coste"], 0.5 * VALLE + 1.5 * EXCEDENTE_FINAL, 1e-9) and casi(a["carga_red"], 0.5, 1e-9),
               f"carga mixta: 0,5 kWh de red y 1,5 de sol ({a['coste']:.5f} €)")
 
-    from custom_components.ahorro_bateria.calculo import CLAVES
+    CLAVES = calculo.CLAVES
 
     a = una_hora(0, 400, PUNTA)
     comprobar(all(a[k] == 0 for k in CLAVES), "batería parada y sin consumo: no suma ahorro")
@@ -206,8 +233,7 @@ def test_calculo() -> None:
               and casi(acumulados.total["descarga_punta"], 6.0, 1e-9),
               "el total parte de los valores iniciales")
     print("\nTope de la compensación")
-    from custom_components.ahorro_bateria.calculo import Facturacion, resumen_periodo
-    from custom_components.ahorro_bateria.contador import inicio_periodo
+    Facturacion, resumen_periodo, inicio_periodo = calculo.Facturacion, calculo.resumen_periodo, calculo.inicio_periodo
     from datetime import date
 
     a = una_hora(0, -3000, PUNTA, consumo_w=500, termino_potencia_dia=0.24)
@@ -250,8 +276,11 @@ def test_calculo() -> None:
     acumulados = Acumulados.nuevos("2026-10-13", {"neto": 10.0, "descarga_punta": 5.0})
     acumulados.sumar(una_hora(1000, 200, PUNTA))
     acumulados.sumar(una_hora(-2000, -500, PUNTA))
+    acumulados.factor_impuestos = 1.1055
     copia = Acumulados.desde_dict(json.loads(json.dumps(acumulados.a_dict())))
-    comprobar(copia == acumulados, "se guarda y se lee igual (JSON)")
+    comprobar(copia == acumulados, "se guarda y se lee igual (JSON), también el último factor de impuestos")
+    comprobar(acumulados.bajadas({"carga": 0.0, "descarga_punta": 6.0, "neto": -5.0}) == ["carga"],
+              "los kWh acumulados no pueden bajar; el neto (€) sí")
 
 
 # ── Home Assistant real ──────────────────────────────────────────────
@@ -499,6 +528,11 @@ async def _recorrido(directorio: Path) -> None:
         fuente("sensor.deye_battery_power", 1.5, "kW")
         await hass.async_block_till_done()
         comprobar(contador().entradas.bateria_w == 1500, "una fuente en kW se pasa a W")
+        fuente("sensor.periodo_tarifario", "unavailable")
+        await hass.async_block_till_done()
+        comprobar(contador().entradas.periodo == "valle",
+                  "con el periodo no disponible se sigue con el último bueno")
+        await periodo("Valle", VALLE)
 
         # ── Hueco largo (HA colgado o equipo suspendido) ──
         print("\n  · hueco largo")
@@ -566,6 +600,11 @@ async def _recorrido(directorio: Path) -> None:
         comprobar(casi(sugeridos["neto"], valor("neto_total")) and casi(sugeridos["placas"], valor("placas_total")),
                   "el formulario sale con los totales actuales")
         hoy_antes = valor("neto_hoy")
+        malo = await hass.config_entries.options.async_configure(
+            paso["flow_id"], {**{k: sugeridos[k] for k in sugeridos}, "carga": sugeridos["carga"] - 1}
+        )
+        comprobar(malo.get("errors") == {"carga": "no_bajar"} and casi(valor("carga_total"), sugeridos["carga"]),
+                  "no deja bajar un total de kWh (total_increasing)")
         fin = await hass.config_entries.options.async_configure(
             paso["flow_id"], {**{k: sugeridos[k] for k in sugeridos}, "neto": 45.5, "placas": 333.3}
         )
@@ -599,14 +638,17 @@ async def _recorrido(directorio: Path) -> None:
         sin_consumo = {k: v for k, v in sin_iva.items() if k != "consumo"}
         await hass.config_entries.options.async_configure(malo["flow_id"], sin_consumo)
         await hass.async_block_till_done()
-        comprobar(hass.states.get(ENTITY_IDS["placas_total"]).state == "unavailable"
+        comprobar(hass.states.get(ENTITY_IDS["placas_total"]) is None
+                  and registro.async_get(ENTITY_IDS["placas_total"]) is None
                   and hass.states.get(ENTITY_IDS["neto_total"]).state != "unavailable",
-                  "sin consumo, los sensores de placas desaparecen y los de la batería siguen")
+                  "sin consumo, los sensores de placas se borran del registro y los de la batería siguen")
         menu = await hass.config_entries.options.async_init(entrada.entry_id)
         paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
         await hass.config_entries.options.async_configure(paso["flow_id"], sin_iva)
         await hass.async_block_till_done()
-        comprobar(casi(valor("placas_total"), placas), "al volver a ponerlo, las placas siguen donde estaban")
+        comprobar(casi(valor("placas_total"), placas)
+                  and registro.async_get(ENTITY_IDS["placas_total"]).unique_id == f"{DOMINIO}_placas_total",
+                  "al volver a ponerlo, las placas siguen donde estaban (mismo entity_id)")
 
         # ── Periodo de facturación ──
         print("\n  · periodo de facturación")
@@ -654,6 +696,47 @@ async def _recorrido(directorio: Path) -> None:
                   "el tope con potencia pide la potencia y su precio")
         await hass.config_entries.options.async_configure(malo["flow_id"], {**sin_iva, "monedero": True, "dia_facturacion": 15})
         await hass.async_block_till_done()
+
+        # ── HA parado justo al cambiar de periodo ──
+        print("\n  · HA parado al cambiar de periodo")
+        fuente("input_number.potencia_contratada_punta", 4.6)  # sin unidad: kW
+        fuente("input_number.precio_potencia_contratada_punta", 0.1, "EUR/kW/día")
+        con_iva = {**fuentes, "monedero": False, "dia_facturacion": 15,
+                   "potencia_punta": "input_number.potencia_contratada_punta",
+                   "precio_potencia_punta": "input_number.precio_potencia_contratada_punta"}
+        menu = await hass.config_entries.options.async_init(entrada.entry_id)
+        paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
+        await hass.config_entries.options.async_configure(paso["flow_id"], con_iva)
+        await hass.async_block_till_done()
+        comprobar(casi(contador().entradas.termino_potencia_dia or 0, 4.6 * 0.1, 1e-9),
+                  f"la potencia contratada sin unidad se toma en kW ({contador().entradas.termino_potencia_dia} €/día)")
+        await potencias(0, -3000, consumo=500)
+        await avanzar(60)
+        exceso = contador().periodo_actual()["exceso_real"]
+        await hass.config_entries.async_unload(entrada.entry_id)
+        await hass.async_block_till_done()
+        fuente("input_number.precio_iva", "unavailable")
+        fuente("input_number.precio_impuestos_electricidad", "unavailable")
+        reloj.t = _local("2026-11-15T09:00:00")  # HA vuelve ya en el periodo siguiente
+        await hass.config_entries.async_setup(entrada.entry_id)
+        await hass.async_block_till_done()
+        ultimo = contador().acumulados.ultimo_periodo or {}
+        comprobar(exceso > 0 and ultimo.get("inicio") == "2026-10-15" and ultimo.get("fin") == "2026-11-15"
+                  and casi(ultimo.get("ajuste_instalacion", 0), -exceso * 1.10 * 1.005),
+                  "al arrancar ya en otro periodo, se cierra con los últimos impuestos conocidos, no con 0 %"
+                  f" ({ultimo.get('ajuste_instalacion')} €)")
+        comprobar(not contador().entradas.completas, "y sin impuestos disponibles no se cuenta nada")
+        fuente("input_number.precio_iva", 10.0, "%")
+        fuente("input_number.precio_impuestos_electricidad", 0.5, "%")
+        await hass.async_block_till_done()
+
+        menu = await hass.config_entries.options.async_init(entrada.entry_id)
+        paso = await hass.config_entries.options.async_configure(menu["flow_id"], {"next_step_id": "fuentes"})
+        await hass.config_entries.options.async_configure(paso["flow_id"], {**con_iva, "dia_facturacion": 20})
+        await hass.async_block_till_done()
+        comprobar(contador().acumulados.inicio_periodo == "2026-10-20"
+                  and hass.states.get(ENTITY_IDS["compensacion_periodo"]).attributes.get("inicio") == "2026-10-20",
+                  "cambiar el día en Configurar también mueve el inicio del periodo")
 
         # ── Diagnóstico ──
         from custom_components.ahorro_bateria.diagnostics import async_get_config_entry_diagnostics

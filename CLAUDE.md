@@ -33,8 +33,13 @@ custom_components/ahorro_bateria/
   calculo.py      la fórmula y los acumulados (sin Home Assistant)
   contador.py     escucha las fuentes, va sumando, medianoche, disco
   __init__.py     alta y baja de la entrada
-  sensor.py       13 sensores de batería + 4 de placas/instalación (entity_id fijos)
-  entity.py       dispositivos de tipo servicio (batería, placas, instalación)
+  sensor.py       13 sensores de batería + 4 de placas/instalación
+                  + 4 de facturación (entity_id fijos)
+  switch.py       3 interruptores de facturación (monedero, antes de
+                  impuestos, tope con potencia)
+  number.py       día de inicio del periodo de facturación
+  entity.py       dispositivos de tipo servicio (batería, placas,
+                  instalación, facturación)
   config_flow.py  alta en dos pasos y Configurar (entidades / totales)
   diagnostics.py  diagnóstico descargable
   strings.json, translations/, icons.json
@@ -67,7 +72,7 @@ sin editar antes en el repo.
 
 ```bash
 python3 -m venv /tmp/hav
-/tmp/hav/bin/pip install homeassistant==2026.10.1
+/tmp/hav/bin/pip install homeassistant==2026.11.0 pillow
 /tmp/hav/bin/python tests/test_ahorro_bateria.py
 ```
 

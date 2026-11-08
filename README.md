@@ -42,7 +42,7 @@ Detalle y ejemplos en DECISIONES §2, §3 y §10.
 
 ## Qué crea
 
-Tres dispositivos. «Ahorro batería», con 13 sensores:
+Cuatro dispositivos. «Ahorro batería», con 13 sensores:
 
 | Sensor | Qué es |
 |---|---|
@@ -56,15 +56,16 @@ Tres dispositivos. «Ahorro batería», con 13 sensores:
 | `sensor.bateria_carga_kwh_hoy` | kWh cargados hoy |
 | `sensor.bateria_carga_red_kwh_hoy` | De ellos, los que vinieron de la red |
 
-Y, si está configurado el consumo de la casa, «Ahorro placas» y «Ahorro
-instalación» (€, hoy y acumulado):
+Si está configurado el consumo de la casa, «Ahorro placas» y «Ahorro
+instalación» (€, hoy y acumulado; si se quita el consumo, se borran y lo
+acumulado sigue guardado para cuando se vuelva a poner):
 
 | Sensor | Qué es |
 |---|---|
 | `sensor.ahorro_placas_hoy` / `_total` | Lo que ahorran las placas |
 | `sensor.ahorro_instalacion_hoy` / `_total` | Placas + batería; el total lleva el desglose en atributos |
 
-Y un cuarto, «Ahorro facturación», con el periodo de facturación en curso
+Y «Ahorro facturación», con el periodo de facturación en curso
 (€ sin impuestos): `sensor.ahorro_compensacion_periodo`,
 `sensor.ahorro_tope_periodo`, `sensor.ahorro_exceso_periodo` y
 `sensor.ahorro_ajuste_tope_total`; y sus ajustes, que también se cambian
@@ -94,10 +95,17 @@ de «hoy» vuelve a 0 a medianoche.
      y, opcionales, el IVA y el impuesto eléctrico (en %), el periodo
      tarifario (Punta/Llano/Valle o P1/P2/P3, solo para repartir los kWh) y
      el consumo de la casa (W o kW; sin él no hay ahorro de las placas).
+   - **Facturación**: si lo que pasa del tope va a un monedero (y si su
+     saldo se descuenta antes de impuestos), si la compensación descuenta
+     también la potencia, y el día en que empieza el periodo de facturación.
+   - **Potencia contratada** (opcional, solo para el tope con potencia):
+     potencia punta y valle (W o kW; sin unidad se toma kW) y su precio
+     (€/kW·día sin impuestos), cuatro entidades.
    - **Lo acumulado hasta hoy**: si vienes de otro sistema, sus totales.
 
 En **Configurar** se pueden cambiar las entidades sin perder lo acumulado,
-o corregir los totales. **Descargar diagnóstico** da las entradas actuales y
+o corregir los totales (los kWh solo pueden subir: HA tomaría una bajada
+por un contador reiniciado). **Descargar diagnóstico** da las entradas actuales y
 los acumulados.
 
 Lo acumulado se guarda en `.storage/ahorro_bateria`. Si se borra la
@@ -113,7 +121,7 @@ Copia `custom_components/ahorro_bateria` a
 
 ```bash
 python3 -m venv /tmp/hav
-/tmp/hav/bin/pip install homeassistant==2026.10.1
+/tmp/hav/bin/pip install homeassistant==2026.11.0 pillow
 /tmp/hav/bin/python tests/test_ahorro_bateria.py
 ```
 

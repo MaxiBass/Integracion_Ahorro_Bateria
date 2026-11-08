@@ -39,9 +39,9 @@
           "monedero_antes_impuestos": "Tick it if the balance offsets the energy or power term (it also saves taxes); untick it if it is taken off the bill total.",
           "tope_incluye_potencia": "Tick it if compensation can also offset the power term (the cap becomes energy + power). Needs the power and its price.",
           "dia_facturacion": "1 to 31; in shorter months, the last day.",
-          "potencia_punta": "In W or kW.",
+          "potencia_punta": "In W or kW; without a unit, kW is assumed.",
           "precio_potencia_punta": "€/kW·day, before taxes.",
-          "potencia_valle": "In W or kW.",
+          "potencia_valle": "In W or kW; without a unit, kW is assumed.",
           "precio_potencia_valle": "€/kW·day, before taxes."
         }
       },
@@ -112,9 +112,9 @@
           "monedero_antes_impuestos": "Tick it if the balance offsets the energy or power term (it also saves taxes); untick it if it is taken off the bill total.",
           "tope_incluye_potencia": "Tick it if compensation can also offset the power term (the cap becomes energy + power). Needs the power and its price.",
           "dia_facturacion": "1 to 31; in shorter months, the last day.",
-          "potencia_punta": "In W or kW.",
+          "potencia_punta": "In W or kW; without a unit, kW is assumed.",
           "precio_potencia_punta": "€/kW·day, before taxes.",
-          "potencia_valle": "In W or kW.",
+          "potencia_valle": "In W or kW; without a unit, kW is assumed.",
           "precio_potencia_valle": "€/kW·day, before taxes."
         }
       },
@@ -133,7 +133,8 @@
     },
     "error": {
       "misma_entidad": "Battery, grid and consumption must be different entities.",
-      "falta_potencia": "Including power in the cap needs the contracted power and its price."
+      "falta_potencia": "Including power in the cap needs the contracted power and its price.",
+      "no_bajar": "Accumulated kWh can only go up: Home Assistant would take a decrease as a counter reset. Enter a value equal to or greater than the current one."
     },
     "abort": {
       "no_cargada": "The integration is not loaded; try again once it is."

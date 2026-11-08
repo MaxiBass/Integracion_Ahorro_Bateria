@@ -37,6 +37,7 @@ monedero o se pierda.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any
 
 from .const import PERIODOS
@@ -58,6 +59,9 @@ CLAVES = (
 CLAVES_TOTAL = ("neto", *CLAVES, "ajuste_tope")
 # Lo que se puede fijar al dar de alta o corregir en Configurar.
 CLAVES_CORREGIBLES = ("neto", "placas", "descarga_punta", "descarga_llano", "descarga_valle", "carga")
+# De ellas, las que van a sensores `total_increasing`: no pueden bajar (HA
+# entendería que el contador se ha reiniciado).
+CLAVES_SOLO_SUBEN = ("descarga_punta", "descarga_llano", "descarga_valle", "carga")
 # Lo que se acumula en el periodo de facturación en curso, en € sin
 # impuestos: término de energía y compensación en cada escenario, y término
 # de potencia.
@@ -193,6 +197,24 @@ def resumen_periodo(periodo: dict[str, float], facturacion: Facturacion) -> dict
     return resumen
 
 
+def inicio_periodo(dia: date, dia_facturacion: int) -> date:
+    """Primer día del periodo de facturación que contiene `dia`.
+
+    Los periodos empiezan el día `dia_facturacion` de cada mes; en los meses
+    más cortos, el último día del mes.
+    """
+
+    def en_mes(anio: int, mes: int) -> date:
+        siguiente = date(anio + mes // 12, mes % 12 + 1, 1)
+        return date(anio, mes, min(dia_facturacion, (siguiente - timedelta(days=1)).day))
+
+    candidato = en_mes(dia.year, dia.month)
+    if candidato <= dia:
+        return candidato
+    anterior = date(dia.year, dia.month, 1) - timedelta(days=1)
+    return en_mes(anterior.year, anterior.month)
+
+
 def _ceros(claves: tuple[str, ...]) -> dict[str, float]:
     return dict.fromkeys(claves, 0.0)
 
@@ -210,6 +232,10 @@ class Acumulados:
     periodo: dict[str, float] = field(default_factory=lambda: _ceros(CLAVES_PERIODO))
     # Último periodo cerrado (para mostrarlo): resumen y ajuste aplicado.
     ultimo_periodo: dict[str, Any] | None = None
+    # Último factor de impuestos conocido ((1 + IEE) × (1 + IVA)): si al
+    # cerrar un periodo las fuentes de impuestos aún no tienen valor (p. ej.
+    # justo tras arrancar HA), se usa este.
+    factor_impuestos: float | None = None
 
     @classmethod
     def nuevos(cls, dia: str, iniciales: dict[str, Any] | None = None) -> Acumulados:
@@ -233,6 +259,7 @@ class Acumulados:
                 **{k: float(v) for k, v in datos.get("periodo", {}).items() if k in CLAVES_PERIODO},
             },
             ultimo_periodo=datos.get("ultimo_periodo"),
+            factor_impuestos=datos.get("factor_impuestos"),
         )
 
     def a_dict(self) -> dict[str, Any]:
@@ -243,6 +270,7 @@ class Acumulados:
             "inicio_periodo": self.inicio_periodo,
             "periodo": dict(self.periodo),
             "ultimo_periodo": self.ultimo_periodo,
+            "factor_impuestos": self.factor_impuestos,
         }
 
     @property
@@ -298,6 +326,15 @@ class Acumulados:
     def cambiar_de_dia(self, dia: str) -> None:
         self.dia = dia
         self.hoy = _ceros(CLAVES)
+
+    def bajadas(self, valores: dict[str, Any]) -> list[str]:
+        """Claves de `valores` que dejarían por debajo un total que solo sube."""
+        return [
+            clave
+            for clave in CLAVES_SOLO_SUBEN
+            if valores.get(clave) is not None
+            and float(valores[clave]) < round(self.total[clave], 4) - 1e-9
+        ]
 
     def corregir(self, valores: dict[str, Any]) -> None:
         """Fija los totales indicados; lo de hoy no se toca."""

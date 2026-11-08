@@ -39,9 +39,9 @@
           "monedero_antes_impuestos": "Márcalo si el saldo se descuenta del término de energía o potencia (también ahorra impuestos); desmárcalo si se descuenta del total de la factura.",
           "tope_incluye_potencia": "Márcalo si la compensación puede descontar también la potencia (el tope pasa a ser energía + potencia). Necesita la potencia y su precio.",
           "dia_facturacion": "Del 1 al 31; en meses más cortos, el último día.",
-          "potencia_punta": "En W o kW.",
+          "potencia_punta": "En W o kW; sin unidad se toma kW.",
           "precio_potencia_punta": "€/kW·día, sin impuestos.",
-          "potencia_valle": "En W o kW.",
+          "potencia_valle": "En W o kW; sin unidad se toma kW.",
           "precio_potencia_valle": "€/kW·día, sin impuestos."
         }
       },
@@ -112,9 +112,9 @@
           "monedero_antes_impuestos": "Márcalo si el saldo se descuenta del término de energía o potencia (también ahorra impuestos); desmárcalo si se descuenta del total de la factura.",
           "tope_incluye_potencia": "Márcalo si la compensación puede descontar también la potencia (el tope pasa a ser energía + potencia). Necesita la potencia y su precio.",
           "dia_facturacion": "Del 1 al 31; en meses más cortos, el último día.",
-          "potencia_punta": "En W o kW.",
+          "potencia_punta": "En W o kW; sin unidad se toma kW.",
           "precio_potencia_punta": "€/kW·día, sin impuestos.",
-          "potencia_valle": "En W o kW.",
+          "potencia_valle": "En W o kW; sin unidad se toma kW.",
           "precio_potencia_valle": "€/kW·día, sin impuestos."
         }
       },
@@ -133,7 +133,8 @@
     },
     "error": {
       "misma_entidad": "Batería, red y consumo tienen que ser entidades distintas.",
-      "falta_potencia": "Para que el tope incluya la potencia hacen falta la potencia contratada y su precio."
+      "falta_potencia": "Para que el tope incluya la potencia hacen falta la potencia contratada y su precio.",
+      "no_bajar": "Los kWh acumulados solo pueden subir: Home Assistant tomaría una bajada por un contador reiniciado. Pon un valor igual o mayor que el actual."
     },
     "abort": {
       "no_cargada": "La integración no está cargada; vuelve a intentarlo cuando lo esté."

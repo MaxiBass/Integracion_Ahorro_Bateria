@@ -64,6 +64,22 @@
       "ajuste_tope_total": {
         "default": "mdi:scale-balance"
       }
+    },
+    "switch": {
+      "monedero": {
+        "default": "mdi:wallet-outline"
+      },
+      "monedero_antes_impuestos": {
+        "default": "mdi:receipt-text-outline"
+      },
+      "tope_incluye_potencia": {
+        "default": "mdi:transmission-tower"
+      }
+    },
+    "number": {
+      "dia_facturacion": {
+        "default": "mdi:calendar-start"
+      }
     }
   }
 }

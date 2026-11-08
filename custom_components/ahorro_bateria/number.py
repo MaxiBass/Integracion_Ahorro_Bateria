@@ -2,20 +2,19 @@
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CONF_DIA_FACTURACION, DOMAIN
-from .contador import ContadorAhorro, senal_actualizado
+from .contador import EntradaAhorro, senal_actualizado
 from .entity import device_info
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry[ContadorAhorro],
+    entry: EntradaAhorro,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     async_add_entities([DiaFacturacion(entry)])
@@ -26,13 +25,12 @@ class DiaFacturacion(NumberEntity):
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.CONFIG
     _attr_translation_key = CONF_DIA_FACTURACION
-    _attr_icon = "mdi:calendar-start"
     _attr_native_min_value = 1
     _attr_native_max_value = 31
     _attr_native_step = 1
     _attr_mode = NumberMode.BOX
 
-    def __init__(self, entry: ConfigEntry[ContadorAhorro]) -> None:
+    def __init__(self, entry: EntradaAhorro) -> None:
         self._contador = entry.runtime_data
         self._attr_unique_id = f"{DOMAIN}_{CONF_DIA_FACTURACION}"
         self.entity_id = "number.ahorro_dia_facturacion"

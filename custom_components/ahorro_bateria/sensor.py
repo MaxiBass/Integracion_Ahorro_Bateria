@@ -17,16 +17,16 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .calculo import Acumulados
 from .const import CONF_CONSUMO, DOMAIN
-from .contador import ContadorAhorro, senal_actualizado
+from .contador import ContadorAhorro, EntradaAhorro, senal_actualizado
 from .entity import device_info
 
 EURO = "€"
@@ -133,7 +133,7 @@ class DescripcionFacturacion(SensorEntityDescription):
 
 
 def _periodo(clave: str):
-    return lambda c: c.periodo_actual()[clave]
+    return lambda c: c.periodo_en_curso[clave]
 
 
 SENSORES_FACTURACION: tuple[DescripcionFacturacion, ...] = tuple(
@@ -149,10 +149,10 @@ SENSORES_FACTURACION: tuple[DescripcionFacturacion, ...] = tuple(
     )
     for clave, entity_id, valor, atributos in (
         ("compensacion_periodo", "sensor.ahorro_compensacion_periodo", _periodo("comp_real"),
-         lambda c: c.periodo_actual()),
+         lambda c: c.periodo_en_curso),
         ("tope_periodo", "sensor.ahorro_tope_periodo", _periodo("tope_real"), None),
         ("exceso_periodo", "sensor.ahorro_exceso_periodo", _periodo("exceso_real"),
-         lambda c: {"destino": c.periodo_actual()["destino_exceso"]}),
+         lambda c: {"destino": c.periodo_en_curso["destino_exceso"]}),
         ("ajuste_tope_total", "sensor.ahorro_ajuste_tope_total", lambda c: c.acumulados.total["ajuste_tope"],
          lambda c: {"ultimo_periodo": c.acumulados.ultimo_periodo}),
     )
@@ -161,12 +161,20 @@ SENSORES_FACTURACION: tuple[DescripcionFacturacion, ...] = tuple(
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry[ContadorAhorro],
+    entry: EntradaAhorro,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     descripciones = SENSORES
     if entry.options.get(CONF_CONSUMO):
         descripciones += SENSORES_PLACAS
+    else:
+        # Sin consumo no hay placas: se borran del registro para que no se
+        # queden «no disponibles» para siempre. Lo acumulado sigue en disco,
+        # y si se vuelve a poner el consumo reaparecen con el mismo entity_id.
+        registro = er.async_get(hass)
+        for descripcion in SENSORES_PLACAS:
+            if entity_id := registro.async_get_entity_id("sensor", DOMAIN, f"{DOMAIN}_{descripcion.key}"):
+                registro.async_remove(entity_id)
     async_add_entities(
         [SensorAhorro(entry, descripcion) for descripcion in descripciones]
         + [SensorFacturacion(entry, descripcion) for descripcion in SENSORES_FACTURACION]
@@ -180,7 +188,7 @@ class SensorAhorro(SensorEntity):
     _attr_should_poll = False
     entity_description: DescripcionAhorro
 
-    def __init__(self, entry: ConfigEntry[ContadorAhorro], descripcion: DescripcionAhorro) -> None:
+    def __init__(self, entry: EntradaAhorro, descripcion: DescripcionAhorro) -> None:
         self.entity_description = descripcion
         self._contador = entry.runtime_data
         # Una sola entrada por instalación (manifest), así que el unique_id
@@ -226,7 +234,7 @@ class SensorFacturacion(SensorAhorro):
 
     entity_description: DescripcionFacturacion
 
-    def __init__(self, entry: ConfigEntry[ContadorAhorro], descripcion: DescripcionFacturacion) -> None:
+    def __init__(self, entry: EntradaAhorro, descripcion: DescripcionFacturacion) -> None:
         self.entity_description = descripcion
         self._contador = entry.runtime_data
         self._attr_unique_id = f"{DOMAIN}_{descripcion.key}"

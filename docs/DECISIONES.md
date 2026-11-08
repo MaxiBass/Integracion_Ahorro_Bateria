@@ -289,8 +289,41 @@ sin recargar. Por defecto, lo que dice la norma: sin monedero, tope solo de
 energía, periodo desde el día 1. El término de potencia necesita las
 entidades de potencia contratada y su precio.
 
-**Limitaciones.** El periodo se cuenta desde que la integración lo conoce:
-el que estaba en curso al instalar la v0.3.0 empieza ese día. Los periodos
+**Limitaciones.** El periodo se fija al día de facturación del mes (no al
+de instalación): al instalar la v0.3.0, el periodo en curso empieza el
+último día de facturación, pero lo acumulado en él solo cuenta desde la
+instalación, así que su compensación y su tope salen más bajos. Los periodos
 reales no siempre empiezan el mismo día de cada mes; si cambia, se ajusta el
 día (lo acumulado del periodo se conserva). Si el saldo del monedero nunca
 se llega a gastar, valdría menos de lo contado.
+
+## 14. Arreglos de la revisión (v0.3.1, 08/11/2026)
+
+- **Periodo cerrado con HA parado.** Si HA arrancaba ya en un periodo
+  nuevo (reinicio el día de facturación), el que acababa se cerraba antes
+  de leer las fuentes, con IVA e impuesto eléctrico a 0: factor 1,0, y el
+  ajuste se quedaba corto (sin monedero) o desaparecía (monedero sobre el
+  total). Ahora se leen las fuentes antes de mirar el día y el último
+  factor de impuestos bueno se guarda en el almacén
+  (`factor_impuestos`); si al cerrar no hay impuestos aún, se usa ese.
+  Hasta que las fuentes de impuestos tienen valor tras arrancar, no se
+  cuenta nada (antes se contaba con 0 %).
+- **Día de facturación desde Configurar.** Desde el número se recalculaba
+  el inicio del periodo, pero desde Configurar solo se recargaba. Ahora, al
+  cargar, si el inicio guardado no corresponde al día configurado, se
+  recalcula (lo acumulado del periodo se conserva, como desde el número).
+- **Los kWh no bajan.** Corregir en Configurar un total de kWh
+  (`total_increasing`) por debajo del actual da error en el formulario: HA
+  lo tomaría por un contador reiniciado. Los € (`total`) sí pueden bajar.
+- **Potencia contratada sin unidad = kW** (un `input_number` sin unidad);
+  con «W» se toma en W, con «kW» en kW.
+- **Periodo tarifario no disponible**: se sigue con el último bueno, como
+  con los precios.
+- **Sin consumo, los 4 sensores de placas/instalación se borran del
+  registro** en vez de quedarse «no disponibles». Lo acumulado sigue en
+  disco y, si se vuelve a poner el consumo, reaparecen con el mismo
+  `entity_id` (§6).
+- Menores: iconos de interruptores y número en `icons.json`; el resumen del
+  periodo se calcula una vez por refresco; `hacs.json` pide HA ≥ 2025.8
+  (`OptionsFlowWithReload`); `inicio_periodo` pasa a `calculo.py` y las
+  pruebas cargan el cálculo con `importlib`, sin Home Assistant.
